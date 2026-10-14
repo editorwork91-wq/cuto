@@ -14,6 +14,7 @@ create table if not exists public.channels (
   visual_style text not null default 'سينمائي واقعي',
   captions_enabled boolean not null default true,
   watermark_enabled boolean not null default true,
+  default_duration_seconds smallint not null default 45 check (default_duration_seconds in (30, 45, 60)),
   channel_strategy jsonb not null default '{}'::jsonb,
   prompt_pack jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
@@ -23,8 +24,9 @@ create table if not exists public.channels (
 
 -- The only available slots are 1 and 2, and each slot can be used once per owner:
 -- a user cannot create a third channel, including via simultaneous direct API requests.
-create unique index if not exists channels_username_per_user_lower_idx
-  on public.channels (user_id, lower(username));
+drop index if exists public.channels_username_per_user_lower_idx;
+create unique index if not exists channels_username_lower_idx
+  on public.channels (lower(username));
 
 create table if not exists public.video_projects (
   id uuid primary key default gen_random_uuid(),
@@ -42,11 +44,15 @@ create table if not exists public.video_projects (
   prompt_pack jsonb not null default '{}'::jsonb,
   thumbnail_url text,
   video_url text,
+  voice_storage_path text,
   error_message text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint project_channel_owner_consistency unique (id, user_id)
 );
+
+alter table public.video_projects add column if not exists voice_storage_path text;
+alter table public.channels add column if not exists default_duration_seconds smallint not null default 45 check (default_duration_seconds in (30, 45, 60));
 
 create index if not exists channels_user_created_idx on public.channels (user_id, created_at desc);
 create index if not exists projects_user_created_idx on public.video_projects (user_id, created_at desc);
@@ -72,6 +78,37 @@ drop trigger if exists video_projects_set_updated_at on public.video_projects;
 create trigger video_projects_set_updated_at
 before update on public.video_projects
 for each row execute function public.cuto_set_updated_at();
+
+-- Render status is worker-owned. Browser-authenticated users cannot mark a render complete
+-- or forge progress/video URLs via the Data API. Trusted server-side workers use service role.
+create or replace function public.cuto_protect_render_state()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if auth.uid() is not null then
+    if tg_op = 'INSERT' then
+      new.status := 'draft';
+      new.progress := 0;
+      new.stage := 'مسودة محفوظة';
+      new.video_url := null;
+      new.error_message := null;
+    else
+      new.status := old.status;
+      new.progress := old.progress;
+      new.video_url := old.video_url;
+      new.error_message := old.error_message;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists video_projects_protect_render_state on public.video_projects;
+create trigger video_projects_protect_render_state
+before insert or update on public.video_projects
+for each row execute function public.cuto_protect_render_state();
 
 alter table public.channels enable row level security;
 alter table public.video_projects enable row level security;
@@ -183,7 +220,10 @@ create policy "Users can delete their private CUTO assets"
 
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on public.channels to authenticated;
-grant select, insert, update, delete on public.video_projects to authenticated;
+grant select, insert, delete on public.video_projects to authenticated;
+revoke update on public.video_projects from anon, authenticated, PUBLIC;
+grant update (title, idea, duration_seconds, recipe_plan, prompt_pack, stage, voice_storage_path)
+  on public.video_projects to authenticated;
 
 -- Enable realtime project status updates where the default Supabase publication is available.
 do $$
