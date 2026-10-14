@@ -78,6 +78,37 @@ create trigger video_projects_set_updated_at
 before update on public.video_projects
 for each row execute function public.cuto_set_updated_at();
 
+-- Render status is worker-owned. Browser-authenticated users cannot mark a render complete
+-- or forge progress/video URLs via the Data API. Trusted server-side workers use service role.
+create or replace function public.cuto_protect_render_state()
+returns trigger
+language plpgsql
+set search_path = ''
+as $
+begin
+  if auth.uid() is not null then
+    if tg_op = 'INSERT' then
+      new.status := 'draft';
+      new.progress := 0;
+      new.stage := 'مسودة محفوظة';
+      new.video_url := null;
+      new.error_message := null;
+    else
+      new.status := old.status;
+      new.progress := old.progress;
+      new.video_url := old.video_url;
+      new.error_message := old.error_message;
+    end if;
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists video_projects_protect_render_state on public.video_projects;
+create trigger video_projects_protect_render_state
+before insert or update on public.video_projects
+for each row execute function public.cuto_protect_render_state();
+
 alter table public.channels enable row level security;
 alter table public.video_projects enable row level security;
 
@@ -188,7 +219,10 @@ create policy "Users can delete their private CUTO assets"
 
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on public.channels to authenticated;
-grant select, insert, update, delete on public.video_projects to authenticated;
+grant select, insert, delete on public.video_projects to authenticated;
+revoke update on public.video_projects from authenticated;
+grant update (title, idea, duration_seconds, recipe_plan, prompt_pack, stage, voice_storage_path)
+  on public.video_projects to authenticated;
 
 -- Enable realtime project status updates where the default Supabase publication is available.
 do $$
