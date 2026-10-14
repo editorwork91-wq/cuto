@@ -24,7 +24,7 @@ Deno.serve(async (request: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
-  const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
+  const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.8-flash";
 
   if (!authorization?.startsWith("Bearer ")) return respond(401, { error: "authentication_required" });
   if (!supabaseUrl || !supabaseKey) return respond(500, { error: "supabase_function_not_configured" });
