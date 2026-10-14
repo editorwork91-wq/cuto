@@ -14,6 +14,7 @@ create table if not exists public.channels (
   visual_style text not null default 'سينمائي واقعي',
   captions_enabled boolean not null default true,
   watermark_enabled boolean not null default true,
+  default_duration_seconds smallint not null default 45 check (default_duration_seconds in (30, 45, 60)),
   channel_strategy jsonb not null default '{}'::jsonb,
   prompt_pack jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
@@ -50,6 +51,7 @@ create table if not exists public.video_projects (
 );
 
 alter table public.video_projects add column if not exists voice_storage_path text;
+alter table public.channels add column if not exists default_duration_seconds smallint not null default 45 check (default_duration_seconds in (30, 45, 60));
 
 create index if not exists channels_user_created_idx on public.channels (user_id, created_at desc);
 create index if not exists projects_user_created_idx on public.video_projects (user_id, created_at desc);
