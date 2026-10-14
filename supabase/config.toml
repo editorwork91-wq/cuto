@@ -1,0 +1,13 @@
+project_id = "cuto"
+
+[functions.channel-director]
+verify_jwt = true
+
+[functions.recipe-director]
+verify_jwt = true
+
+[functions.voice-preview]
+verify_jwt = true
+
+[functions.generate-narration]
+verify_jwt = true
