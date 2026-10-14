@@ -184,3 +184,13 @@ create policy "Users can delete their private CUTO assets"
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on public.channels to authenticated;
 grant select, insert, update, delete on public.video_projects to authenticated;
+
+-- Enable realtime project status updates where the default Supabase publication is available.
+do $$
+begin
+  alter publication supabase_realtime add table public.video_projects;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end;
+$$;
