@@ -57,22 +57,15 @@ async function makeSpeech(text: string, voiceGender: string, language: string) {
         ? "Speak naturally in Turkish."
         : "Speak naturally in English.";
   const genderStyle = voiceGender === "male" ? "a natural adult male narrator" : "a natural adult female narrator";
-  const style = `${genderStyle}. ${dialect} Read exactly the supplied script in a polished, friendly, warm and conversational tone suitable for a professional short-form cooking video. Keep a moderate pace, clear diction and natural pauses.`;
+  const prompt = `TTS the following script. Audio profile: ${genderStyle}. ${dialect} Delivery: warm, polished, friendly and conversational; moderate pace, clear diction and natural pauses. Read the script faithfully and do not announce the directions. Script:\n\n${text}`;
 
   const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
     headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
-      input: [{
-        type: "user_input",
-        content: [{
-          type: "text",
-          text,
-          annotations: [{ type: "speech_metadata", style }],
-        }],
-      }],
-      response_format: { type: "audio", mime_type: "audio/wav" },
+      input: prompt,
+      response_format: { type: "audio" },
       generation_config: { speech_config: [{ voice: voiceName }] },
     }),
   });
@@ -88,7 +81,7 @@ async function makeSpeech(text: string, voiceGender: string, language: string) {
       ?.at(-1)?.data;
   if (typeof audioData !== "string" || !audioData.length) throw new Error("empty_speech_response");
   const audioBytes = Uint8Array.from(atob(audioData), char => char.charCodeAt(0));
-  // Non-streaming audio/wav returns a WAV container; raw PCM is used as a fallback.
+  // Accept WAV containers directly; wrap raw 24 kHz/16-bit/mono PCM as WAV.
   if (audioBytes.length >= 12 &&
       String.fromCharCode(...audioBytes.subarray(0, 4)) === "RIFF" &&
       String.fromCharCode(...audioBytes.subarray(8, 12)) === "WAVE") return audioBytes;
