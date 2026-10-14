@@ -28,15 +28,16 @@ The GitHub token connected to this session cannot enable Pages for the repositor
 ## Supabase setup
 
 1. Apply `supabase/migrations/20261014000000_cuto_core.sql` in the Supabase SQL Editor (or with the Supabase CLI).
-2. Deploy the Edge Function in `supabase/functions/channel-director`.
-3. Set `GEMINI_API_KEY` in Supabase Dashboard → Edge Functions → Secrets. Never place this key in browser code.
+2. Deploy the Edge Functions from this repo: `channel-director`, `recipe-director`, `voice-preview`, and `generate-narration`. The function folders contain the entrypoint source; use the Supabase CLI from a local checkout or paste each function into the Edge Function editor. Keep JWT verification enabled.
+3. Set `GEMINI_API_KEY` in Supabase Dashboard → Edge Functions → Secrets. Optionally set `GEMINI_MODEL` (default `gemini-3.8-flash`) and `GEMINI_TTS_MODEL` (default `gemini-3.8-flash-tts`) there too. Never put these secrets in the browser or commit their real values.
 4. Ensure Email auth is enabled in Supabase Auth settings and configure your site URL / redirect URLs.
+5. The voice preview function returns a sample generated audio clip; the narration function generates the saved script as WAV and stores it in private `cuto-assets`, then returns a short-lived signed URL. Voice gender is a preference/instruction to the model, not a guarantee of a specific speaker identity or dialect quality.
 
 The browser uses a publishable key only. RLS policies scope rows to `auth.uid()`; channel count is enforced by Postgres as a second line of defense.
 
 ## Video generation status
 
-The initial project creates channel strategy and recipe-production briefs. A real MP4 pipeline needs a chosen, licensed footage/video provider and a speech provider, plus a server-side rendering/worker service (for example FFmpeg). These integrations are intentionally not faked: without provider secrets and a running worker, the app does not claim that a final video exists or that a five-minute SLA is guaranteed. Use the project's stored status to report queued/running/failed/completed states from real workers.
+The project currently creates channel strategy and recipe-production briefs, and includes Edge Functions for voice preview and saving a generated narration WAV. A real MP4 pipeline still needs a chosen, licensed footage/video provider and a server-side rendering/worker service (for example FFmpeg) to assemble clips, subtitles, the white creator handle, music and final export. These integrations are intentionally not faked: without provider secrets and a running worker, the app does not claim that a final video exists or that a five-minute SLA is guaranteed. The UI progress bar reads stored status/progress from Supabase; a production worker must update these fields truthfully.
 
 ## Production checklist
 
@@ -48,8 +49,8 @@ The initial project creates channel strategy and recipe-production briefs. A rea
 - Run `npm run build` and validate RLS with separate test users before release.
 
 
-## Additional channel defaults and task status
+## Channel defaults and honest task status
 
-- Each channel stores its own default duration (30, 45, or 60 seconds); creating or switching channels applies that preference to the idea composer.
-- The workspace shows task milestones for saving a project and requesting/saving the AI production plan. The animated track is indeterminate while the Edge Function request is in flight; it is not presented as a measured percentage of final video rendering.
-- Apply the additive migration `supabase/migrations/20261014000001_channel_duration_default.sql` before deploying this revision.
+- Each channel stores its own default duration (30, 45, or 60 seconds); adding or switching channels applies that preference to the idea composer.
+- The workspace shows stage-based progress while saving a project and requesting the AI production plan. It does not present an indeterminate planning request as a measured render percentage.
+- Apply `supabase/migrations/20261014000001_channel_duration_default.sql` before deploying the per-channel duration preference.
