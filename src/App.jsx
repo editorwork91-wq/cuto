@@ -592,12 +592,11 @@ function App() {
       if (alive) timeout = window.setTimeout(poll, 8000)
     }
     timeout = window.setTimeout(poll, 1500)
-    return () => undefined
+    return () => {
+      alive = false
+      if (timeout) window.clearTimeout(timeout)
+    }
   }, [user?.id, activeVideoProjectKey])
-
-  useEffect(() => {
-    return () => { if (timeout) window.clearTimeout(timeout) }
-  }, [])
 
   useEffect(() => {
     if (!supabaseConfigured) {
