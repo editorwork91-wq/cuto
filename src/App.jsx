@@ -134,7 +134,7 @@ function AuthScreen({ mode, setMode, onSubmit, loading, message, credentials, se
   )
 }
 
-function Onboarding({ setup, setSetup, step, setStep, onSubmit, onClose, loading, adding, error }) {
+function Onboarding({ setup, setSetup, step, setStep, onSubmit, onClose, loading, adding, editing, error }) {
   const update = (key, value) => setSetup(current => ({ ...current, [key]: value }))
   const next = e => {
     e.preventDefault()
@@ -230,7 +230,7 @@ function Onboarding({ setup, setSetup, step, setStep, onSubmit, onClose, loading
             {error && <div className="inline-error">{error}</div>}
             <div className="form-footer">
               {step > 1 ? <button type="button" className="secondary-button" onClick={() => setStep(step - 1)}><ChevronRight size={17} /> السابق</button> : <span className="form-security"><LockKeyhole size={13} /> إعداداتك خاصة بحسابك</span>}
-              <button type="submit" className="primary-button" disabled={loading}>{loading ? <LoaderCircle className="spin" size={18} /> : null}{loading ? 'جارٍ تجهيز الاستوديو…' : step < 3 ? 'متابعة' : adding ? 'إضافة القناة' : 'جهّز استوديو قناتي'}{!loading && <ArrowUpLeft size={17} />}</button>
+              <button type="submit" className="primary-button" disabled={loading}>{loading ? <LoaderCircle className="spin" size={18} /> : null}{loading ? 'جارٍ تجهيز الاستوديو…' : step < 3 ? 'متابعة' : editing ? 'حفظ التغييرات' : adding ? 'إضافة القناة' : 'جهّز استوديو قناتي'}{!loading && <ArrowUpLeft size={17} />}</button>
             </div>
           </form>
         </section>
@@ -398,6 +398,7 @@ function App() {
   const [onboardingAdding, setOnboardingAdding] = useState(false)
   const [setupStep, setSetupStep] = useState(1)
   const [setup, setSetup] = useState(defaultSetup)
+  const [editingChannelId, setEditingChannelId] = useState(null)
   const [setupSaving, setSetupSaving] = useState(false)
   const [setupError, setSetupError] = useState('')
   const [idea, setIdea] = useState('')
@@ -515,6 +516,7 @@ function App() {
       notify('الحد الأقصى هو قناتان لكل حساب.', 'error')
       return
     }
+    setEditingChannelId(null)
     setSetup({ ...defaultSetup, language: activeChannel?.language || 'ar-EG', voiceGender: activeChannel?.voice_gender || 'female', visualStyle: activeChannel?.visual_style || 'سينمائي واقعي' })
     setSetupStep(1)
     setSetupError('')
@@ -528,7 +530,7 @@ function App() {
       setSetupStep(1)
       return
     }
-    if (channels.length >= 2 && !onboardingAdding) {
+    if (channels.length >= 2 && !onboardingAdding && !editingChannelId) {
       setSetupError('وصلت للحد الأقصى: قناتان لكل حساب.')
       return
     }
@@ -549,16 +551,29 @@ function App() {
     try {
       let channel
       if (supabaseConfigured && supabase && user) {
-        const slot = channels.length + 1
-        const { data, error } = await supabase.from('channels').insert({ ...channelPayload, user_id: user.id, slot }).select().single()
-        if (error) throw error
-        channel = data
-        setChannels(current => [...current, channel])
-        setActiveChannelId(channel.id)
-        setOnboardingOpen(false)
-        setOnboardingAdding(false)
-        setActiveView('home')
-        notify('تم حفظ القناة. جارٍ تجهيز حزمة البرومبتات الخاصة بها.')
+        if (editingChannelId) {
+          const { data, error } = await supabase.from('channels')
+            .update(channelPayload).eq('id', editingChannelId).eq('user_id', user.id).select().single()
+          if (error) throw error
+          channel = data
+          setChannels(current => current.map(item => item.id === channel.id ? channel : item))
+          setActiveChannelId(channel.id)
+          setOnboardingOpen(false)
+          setOnboardingAdding(false)
+          setActiveView('settings')
+          notify('تم حفظ إعدادات القناة. جارٍ تحديث حزمة البرومبتات.')
+        } else {
+          const slot = channels.length + 1
+          const { data, error } = await supabase.from('channels').insert({ ...channelPayload, user_id: user.id, slot }).select().single()
+          if (error) throw error
+          channel = data
+          setChannels(current => [...current, channel])
+          setActiveChannelId(channel.id)
+          setOnboardingOpen(false)
+          setOnboardingAdding(false)
+          setActiveView('home')
+          notify('تم حفظ القناة. جارٍ تجهيز حزمة البرومبتات الخاصة بها.')
+        }
         const { data: directorData, error: directorError } = await supabase.functions.invoke('channel-director', { body: { channel_id: channel.id } })
         if (directorError) {
           notify('تم حفظ القناة، لكن إعداد البرومبتات يحتاج إلى نشر channel-director وضبط GEMINI_API_KEY.', 'error')
@@ -567,6 +582,16 @@ function App() {
           setChannels(current => current.map(item => item.id === channel.id ? channel : item))
           notify('تم تجهيز هوية القناة وحزمة البرومبتات.')
         }
+      } else if (editingChannelId) {
+        const oldChannel = channels.find(item => item.id === editingChannelId)
+        if (!oldChannel) throw new Error('القناة المطلوبة غير موجودة في مساحة المعاينة.')
+        channel = { ...oldChannel, ...channelPayload, prompt_pack: createPromptPack({ ...oldChannel, ...channelPayload }), updated_at: new Date().toISOString() }
+        setChannels(current => current.map(item => item.id === channel.id ? channel : item))
+        setActiveChannelId(channel.id)
+        setOnboardingOpen(false)
+        setOnboardingAdding(false)
+        setActiveView('settings')
+        notify('تم تحديث إعدادات القناة في المعاينة المحلية.')
       } else {
         const id = makeId()
         channel = {
@@ -586,6 +611,7 @@ function App() {
         notify('تم حفظ إعدادات المعاينة على هذا المتصفح فقط. اربط Supabase لحفظها في حساب فعلي.')
       }
       setSetup(defaultSetup)
+      setEditingChannelId(null)
     } catch (error) {
       const duplicate = /duplicate|unique|slot|channels_owner_slot/i.test(error?.message || '')
       setSetupError(duplicate ? 'اسم المستخدم أو مساحة القناة مستخدمة بالفعل. جرّب اسمًا آخر.' : error?.message || 'تعذّر حفظ الإعدادات. تأكد من تطبيق قاعدة البيانات.')
@@ -678,7 +704,7 @@ function App() {
   }
 
   if (onboardingOpen) {
-    return <><Onboarding setup={setup} setSetup={setSetup} step={setupStep} setStep={setSetupStep} onSubmit={handleSetupSubmit} onClose={() => { setOnboardingOpen(false); setOnboardingAdding(false); setSetupError('') }} loading={setupSaving} adding={onboardingAdding} error={setupError} /><Toast toast={toast} onClose={() => setToast(null)} /></>
+    return <><Onboarding setup={setup} setSetup={setSetup} step={setupStep} setStep={setSetupStep} onSubmit={handleSetupSubmit} onClose={() => { setOnboardingOpen(false); setOnboardingAdding(false); setEditingChannelId(null); setSetupError('') }} loading={setupSaving} adding={onboardingAdding} editing={Boolean(editingChannelId)} error={setupError} /><Toast toast={toast} onClose={() => setToast(null)} /></>
   }
 
   return (
@@ -748,7 +774,7 @@ function App() {
           {activeView === 'settings' && (
             <section className="page-section settings-page">
               <div className="settings-intro"><span className="settings-icon"><SlidersHorizontal size={21} /></span><div><span className="section-kicker">PERSONAL WORKSPACE</span><h2>تفضيلات الاستوديو</h2><p>الإعدادات الافتراضية تتبع القناة النشطة، ويمكنك تعديل كل قناة بشكل مستقل.</p></div></div>
-              <div className="settings-card"><div className="settings-card-header"><div><h3>إعدادات القناة النشطة</h3><p>{activeChannel?.name || 'لم يتم إعداد قناة بعد'}</p></div><span className="soft-tag">DEFAULTS</span></div>{activeChannel ? <><div className="settings-row"><span className="settings-row-icon"><Mic2 size={17} /></span><div><strong>الصوت الافتراضي</strong><small>نوع التعليق الصوتي لجميع المشروعات الجديدة</small></div><span className="settings-value">{activeChannel.voice_gender === 'male' ? 'رجالي' : 'نسائي'}</span></div><div className="settings-row"><span className="settings-row-icon"><Globe2 size={17} /></span><div><strong>اللغة</strong><small>اللغة أو اللهجة الافتراضية للمحتوى</small></div><span className="settings-value">{activeChannel.language === 'en' ? 'English' : activeChannel.language === 'tr' ? 'Türkçe' : activeChannel.language === 'ar' ? 'العربية الفصحى' : 'المصرية'}</span></div><div className="settings-row"><span className="settings-row-icon"><Video size={17} /></span><div><strong>مقاس الفيديو</strong><small>المقاس الأساسي لكل المخرجات</small></div><span className="settings-value">عمودي · 9:16</span></div><div className="settings-row"><span className="settings-row-icon"><ShieldCheck size={17} /></span><div><strong>هوية القناة</strong><small>علامة بيضاء أسفل الفيديو</small></div><span className="settings-value">{activeChannel.watermark_enabled ? 'مفعّلة' : 'متوقفة'}</span></div><div className="settings-row"><span className="settings-row-icon"><AudioLines size={17} /></span><div><strong>الترجمة</strong><small>عبارات تظهر متزامنة مع التعليق</small></div><span className="settings-value">{activeChannel.captions_enabled ? 'مفعّلة' : 'متوقفة'}</span></div><button className="secondary-button settings-edit-button" onClick={() => { setSetup({ ...defaultSetup, channelName: activeChannel.name || '', username: activeChannel.username || '', niche: activeChannel.niche || '', audience: activeChannel.audience || '', language: activeChannel.language || 'ar-EG', voiceGender: activeChannel.voice_gender || 'female', visualStyle: activeChannel.visual_style || 'سينمائي واقعي', captions: activeChannel.captions_enabled ?? true, watermark: activeChannel.watermark_enabled ?? true }); setSetupStep(1); setOnboardingAdding(true); setOnboardingOpen(true); notify('ملاحظة: تعديل القناة الحالية من خلال التهيئة يحتاج حفظ تحديثات في النسخة التالية.', 'error') }}><SlidersHorizontal size={16} /> مراجعة تفضيلات القناة</button></> : <EmptyProjects onCreate={startAddChannel} />}</div>
+              <div className="settings-card"><div className="settings-card-header"><div><h3>إعدادات القناة النشطة</h3><p>{activeChannel?.name || 'لم يتم إعداد قناة بعد'}</p></div><span className="soft-tag">DEFAULTS</span></div>{activeChannel ? <><div className="settings-row"><span className="settings-row-icon"><Mic2 size={17} /></span><div><strong>الصوت الافتراضي</strong><small>نوع التعليق الصوتي لجميع المشروعات الجديدة</small></div><span className="settings-value">{activeChannel.voice_gender === 'male' ? 'رجالي' : 'نسائي'}</span></div><div className="settings-row"><span className="settings-row-icon"><Globe2 size={17} /></span><div><strong>اللغة</strong><small>اللغة أو اللهجة الافتراضية للمحتوى</small></div><span className="settings-value">{activeChannel.language === 'en' ? 'English' : activeChannel.language === 'tr' ? 'Türkçe' : activeChannel.language === 'ar' ? 'العربية الفصحى' : 'المصرية'}</span></div><div className="settings-row"><span className="settings-row-icon"><Video size={17} /></span><div><strong>مقاس الفيديو</strong><small>المقاس الأساسي لكل المخرجات</small></div><span className="settings-value">عمودي · 9:16</span></div><div className="settings-row"><span className="settings-row-icon"><ShieldCheck size={17} /></span><div><strong>هوية القناة</strong><small>علامة بيضاء أسفل الفيديو</small></div><span className="settings-value">{activeChannel.watermark_enabled ? 'مفعّلة' : 'متوقفة'}</span></div><div className="settings-row"><span className="settings-row-icon"><AudioLines size={17} /></span><div><strong>الترجمة</strong><small>عبارات تظهر متزامنة مع التعليق</small></div><span className="settings-value">{activeChannel.captions_enabled ? 'مفعّلة' : 'متوقفة'}</span></div><button className="secondary-button settings-edit-button" onClick={() => { setSetup({ ...defaultSetup, channelName: activeChannel.name || '', username: activeChannel.username || '', niche: activeChannel.niche || '', audience: activeChannel.audience || '', language: activeChannel.language || 'ar-EG', voiceGender: activeChannel.voice_gender || 'female', visualStyle: activeChannel.visual_style || 'سينمائي واقعي', captions: activeChannel.captions_enabled ?? true, watermark: activeChannel.watermark_enabled ?? true }); setSetupStep(1); setEditingChannelId(activeChannel.id); setOnboardingAdding(false); setOnboardingOpen(true); setSetupError('') }}><SlidersHorizontal size={16} /> مراجعة تفضيلات القناة</button></> : <EmptyProjects onCreate={startAddChannel} />}</div>
               <div className="settings-card"><div className="settings-card-header"><div><h3>الحساب والخصوصية</h3><p>نظرة على حالة بيئة العمل والاتصال</p></div><span className="settings-safe-icon"><ShieldCheck size={20} /></span></div><div className="settings-row"><span className="settings-row-icon"><UserRound size={17} /></span><div><strong>طريقة الدخول</strong><small>{user?.email || 'لم يتم ربط حساب حقيقي'}</small></div><span className="settings-value">{user ? 'Supabase Auth' : 'معاينة محلية'}</span></div><div className="settings-row"><span className="settings-row-icon"><Layers3 size={17} /></span><div><strong>حد القنوات</strong><small>العدد الأقصى لكل مستخدم</small></div><span className="settings-value">{channels.length}/2</span></div><div className="settings-row"><span className="settings-row-icon"><LockKeyhole size={17} /></span><div><strong>تخزين البيانات</strong><small>{supabaseConfigured ? 'مصادقة وقاعدة بيانات مهيأتان في الواجهة' : 'هذا المتصفح فقط — لا ترفع بيانات حساسة'}</small></div><span className={`status-tag ${supabaseConfigured ? 'is-live' : ''}`}>{supabaseConfigured ? 'Configured' : 'Preview'}</span></div></div>
             </section>
           )}
