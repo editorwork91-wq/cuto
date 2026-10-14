@@ -24,8 +24,9 @@ create table if not exists public.channels (
 
 -- The only available slots are 1 and 2, and each slot can be used once per owner:
 -- a user cannot create a third channel, including via simultaneous direct API requests.
-create unique index if not exists channels_username_per_user_lower_idx
-  on public.channels (user_id, lower(username));
+drop index if exists public.channels_username_per_user_lower_idx;
+create unique index if not exists channels_username_lower_idx
+  on public.channels (lower(username));
 
 create table if not exists public.video_projects (
   id uuid primary key default gen_random_uuid(),
@@ -220,7 +221,7 @@ create policy "Users can delete their private CUTO assets"
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on public.channels to authenticated;
 grant select, insert, delete on public.video_projects to authenticated;
-revoke update on public.video_projects from authenticated;
+revoke update on public.video_projects from anon, authenticated, PUBLIC;
 grant update (title, idea, duration_seconds, recipe_plan, prompt_pack, stage, voice_storage_path)
   on public.video_projects to authenticated;
 
