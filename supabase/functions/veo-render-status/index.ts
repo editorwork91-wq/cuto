@@ -270,7 +270,7 @@ Deno.serve(async (request: Request) => {
       return reply(202, { status: "rendering", progress: 75, stage: "محرك الرندر يجمع مشاهد Veo والصوت والترجمة", render_id: renderId, poll_again: true });
     }
 
-    if (job.status === "rendering" && job.render_provider_id) {
+    if ((job.status === "rendering" || job.status === "uploading") && job.render_provider_id) {
       const renderResponse = await fetch("https://api.creatomate.com/v2/renders/" + encodeURIComponent(job.render_provider_id), {
         headers: { Authorization: "Bearer " + creatomateKey },
       });
