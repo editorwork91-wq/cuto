@@ -564,7 +564,7 @@ function App() {
       return
     }
     setEditingChannelId(null)
-    setSetup({ ...defaultSetup, language: activeChannel?.language || 'ar-EG', voiceGender: activeChannel?.voice_gender || 'female', visualStyle: activeChannel?.visual_style || 'سينمائي واقعي' })
+    setSetup({ ...defaultSetup, duration: String(activeChannel?.default_duration_seconds || 45), language: activeChannel?.language || 'ar-EG', voiceGender: activeChannel?.voice_gender || 'female', visualStyle: activeChannel?.visual_style || 'سينمائي واقعي' })
     setSetupStep(1)
     setSetupError('')
     setOnboardingAdding(true)
