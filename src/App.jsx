@@ -553,6 +553,52 @@ function App() {
     return () => { supabase.removeChannel(subscription) }
   }, [user?.id])
 
+  const activeVideoProjectKey = projects
+    .filter(project => ['queued', 'processing'].includes(project.status) && !project.video_storage_path)
+    .map(project => project.id)
+    .join('|')
+
+  useEffect(() => {
+    if (!supabaseConfigured || !supabase || !user?.id || !activeVideoProjectKey) return undefined
+    let alive = true
+    let timeout = null
+    const poll = async () => {
+      const projectIds = activeVideoProjectKey.split('|').filter(Boolean)
+      for (const projectId of projectIds) {
+        if (!alive) return
+        try {
+          const { data, error } = await supabase.functions.invoke('veo-render-status', { body: { project_id: projectId } })
+          if (error) {
+            console.warn('CUTO video status polling failed:', error.message)
+            continue
+          }
+          if (!data) continue
+          const patch = data.project || {
+            id: projectId,
+            status: data.status === 'completed' ? 'completed' : data.status === 'failed' ? 'failed' : 'processing',
+            progress: Number.isFinite(Number(data.progress)) ? Number(data.progress) : undefined,
+            stage: typeof data.stage === 'string' ? data.stage : undefined,
+            error_message: data.error || null,
+          }
+          if (!alive) return
+          setProjects(current => current.map(item => item.id === projectId ? { ...item, ...patch } : item))
+          setSelectedProject(current => current?.id === projectId ? { ...current, ...patch } : current)
+          if (data.status === 'completed') notify('اكتمل الفيديو وحُفظ داخل مساحة CUTO الخاصة. يمكنك تنزيل MP4 الآن.')
+          if (data.status === 'failed' && data.error) notify('توقّف إنتاج الفيديو: ' + String(data.error).slice(0, 160), 'error')
+        } catch (error) {
+          console.warn('CUTO video status poll exception:', error?.message || error)
+        }
+      }
+      if (alive) timeout = window.setTimeout(poll, 8000)
+    }
+    timeout = window.setTimeout(poll, 1500)
+    return () => undefined
+  }, [user?.id, activeVideoProjectKey])
+
+  useEffect(() => {
+    return () => { if (timeout) window.clearTimeout(timeout) }
+  }, [])
+
   useEffect(() => {
     if (!supabaseConfigured) {
       writeLocal('cuto.channels', channels)
