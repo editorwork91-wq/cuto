@@ -134,8 +134,8 @@ function AuthScreen({ mode, setMode, onSubmit, loading, message, credentials, se
   )
 }
 
-function Onboarding({ setup, setSetup, step, setStep, onSubmit, onClose, loading, adding, editing, error }) {
-  const update = (key, value) => setSetup(current => ({ ...current, [key]: value }))
+function Onboarding({ setup, setSetup, step, setStep, onSubmit, onClose, loading, adding, editing, error, onPreviewVoice, voicePreviewUrl, voicePreviewLoading, clearVoicePreview }) {
+  const update = (key, value) => { if (key === 'voiceGender' || key === 'language') clearVoicePreview?.(); setSetup(current => ({ ...current, [key]: value })) }
   const next = e => {
     e.preventDefault()
     if (step < 3) { setStep(step + 1); return }
@@ -209,6 +209,14 @@ function Onboarding({ setup, setSetup, step, setStep, onSubmit, onClose, loading
                     <button type="button" className={`voice-option ${setup.voiceGender === 'female' ? 'selected' : ''}`} onClick={() => update('voiceGender', 'female')}><span className="voice-avatar"><AudioLines size={19} /></span><span><strong>صوت نسائي</strong><small>طبيعي وودود</small></span>{setup.voiceGender === 'female' && <CheckCircle2 size={18} />}</button>
                     <button type="button" className={`voice-option ${setup.voiceGender === 'male' ? 'selected' : ''}`} onClick={() => update('voiceGender', 'male')}><span className="voice-avatar"><Volume2 size={19} /></span><span><strong>صوت رجالي</strong><small>واضح ومتوازن</small></span>{setup.voiceGender === 'male' && <CheckCircle2 size={18} />}</button>
                   </div>
+                  <div className="voice-preview-row">
+                    <div className="voice-preview-copy"><strong>اسمع عيّنة من الصوت</strong><small>معاينة بالتفضيلات الحالية قبل حفظ القناة.</small></div>
+                    <button type="button" className="voice-preview-button" onClick={onPreviewVoice} disabled={voicePreviewLoading}>
+                      {voicePreviewLoading ? <LoaderCircle className="spin" size={15} /> : <Play size={15} fill="currentColor" />}
+                      {voicePreviewLoading ? 'جارٍ تجهيز العينة…' : 'معاينة الصوت'}
+                    </button>
+                  </div>
+                  {voicePreviewUrl && <audio className="voice-audio-preview" controls preload="none" src={voicePreviewUrl}>متصفحك لا يدعم تشغيل الصوت.</audio>}
                 </div>
                 <div className="field">
                   <label htmlFor="setup-language">اللغة واللهجة الافتراضية</label>
@@ -360,7 +368,7 @@ function ProjectCard({ project, onOpen }) {
   )
 }
 
-function ProjectModal({ project, onClose, onDownload }) {
+function ProjectModal({ project, onClose, onDownload, onGenerateNarration, narrationLoading }) {
   if (!project) return null
   const plan = project.recipe_plan || {}
   return (
@@ -375,6 +383,14 @@ function ProjectModal({ project, onClose, onDownload }) {
           {plan.hook && <div className="detail-section"><h3>الافتتاحية المقترحة</h3><p className="hook-quote">«{plan.hook}»</p></div>}
           {Array.isArray(plan.steps) && plan.steps.length > 0 && <div className="detail-section"><h3>تسلسل المشاهد</h3><div className="scene-list">{plan.steps.map((step, index) => <div className="scene-row" key={step.title || index}><span className="scene-index">{String(index + 1).padStart(2, '0')}</span><div><strong>{step.title || step.name}</strong><p>{step.detail || step.description}</p></div><small>{step.seconds ? `${step.seconds}ث` : ''}</small></div>)}</div></div>}
           {project.prompt_pack && <div className="detail-section"><h3>برومبتات القناة</h3>{Object.entries(project.prompt_pack).map(([key, value]) => <div className="prompt-line" key={key}><strong>{({identity:'الهوية',script:'السيناريو',voice:'الصوت',visuals:'المشاهد',edit:'المونتاج'})[key] || key}</strong><p>{value}</p></div>)}</div>}
+          {plan.voice_script && <div className="narration-panel">
+            <div className="narration-copy"><span className="narration-icon"><AudioLines size={17} /></span><div><strong>التعليق الصوتي</strong><p>{project.voice_audio_url ? 'ملف الصوت متاح للاستماع عبر رابط خاص مؤقت.' : project.voice_storage_path ? 'تم تخزين التعليق الصوتي بشكل خاص. يمكنك استرجاع رابط للاستماع.' : 'ولّد التعليق باللهجة والاختيار الصوتي الافتراضي للقناة.'}</p></div></div>
+            <button className="secondary-button narration-generate" onClick={() => onGenerateNarration?.(project)} disabled={narrationLoading}>
+              {narrationLoading ? <LoaderCircle className="spin" size={15} /> : <AudioLines size={15} />}
+              {narrationLoading ? 'جارٍ تجهيز التعليق…' : project.voice_audio_url || project.voice_storage_path ? 'إنشاء / استرجاع التعليق' : 'إنشاء التعليق الصوتي'}
+            </button>
+            {project.voice_audio_url && <audio className="voice-audio-preview" controls preload="none" src={project.voice_audio_url}>متصفحك لا يدعم تشغيل الصوت.</audio>}
+          </div>}
           <div className="render-notice"><Film size={18} /><div><strong>{project.video_url ? 'الفيديو جاهز للتنزيل' : 'خطة الإنتاج لا تعني أن ملف الفيديو قد أُنتج'}</strong><p>{project.video_url ? 'يمكن تنزيل الملف النهائي من رابط الفيديو.' : (plan.note || 'يلزم ربط مزوّد مشاهد وصوت ومحرك مونتاج قبل إنشاء ملف MP4 فعلي. لن يعرض CUTO اكتمالًا وهميًا.')}</p></div></div>
           <div className="modal-actions">{project.video_url && <a className="primary-button" href={project.video_url} target="_blank" rel="noreferrer"><Download size={16} /> فتح الفيديو</a>}<button className="secondary-button" onClick={() => onDownload(project)}><Download size={16} /> تنزيل تفاصيل المشروع</button><button className="ghost-button" onClick={onClose}>إغلاق</button></div>
         </div>
@@ -409,6 +425,9 @@ function App() {
   const [idea, setIdea] = useState('')
   const [ideaDuration, setIdeaDuration] = useState('45')
   const [generating, setGenerating] = useState(false)
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState(null)
+  const [voicePreviewLoading, setVoicePreviewLoading] = useState(false)
+  const [narrationLoading, setNarrationLoading] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedProject, setSelectedProject] = useState(null)
@@ -643,6 +662,49 @@ function App() {
     } finally { setSetupSaving(false) }
   }
 
+  async function handleVoicePreview() {
+    setVoicePreviewUrl(null)
+    if (!supabaseConfigured || !supabase || !user) {
+      notify('معاينة الصوت الحقيقية تتطلب ربط مشروع Supabase منفصل لـ CUTO، ونشر voice-preview وضبط GEMINI_API_KEY في أسرار الخادم.', 'error')
+      return
+    }
+    setVoicePreviewLoading(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('voice-preview', {
+        body: { voice_gender: setup.voiceGender, language: setup.language },
+      })
+      if (error) throw error
+      if (!data?.audio_data_url) throw new Error(data?.message || 'خدمة الصوت لم تُرجع ملف معاينة.')
+      setVoicePreviewUrl(data.audio_data_url)
+      notify('تم تجهيز عيّنة الصوت. اضغط تشغيل للاستماع.')
+    } catch (error) {
+      notify(error?.message || 'تعذّر تجهيز عيّنة الصوت. تأكد من نشر الوظيفة وإعداد مفتاح الصوت.', 'error')
+    } finally {
+      setVoicePreviewLoading(false)
+    }
+  }
+
+  async function handleGenerateNarration(project) {
+    if (!supabaseConfigured || !supabase || !user || project?.is_local_preview) {
+      notify('إنشاء الصوت يتطلب مشروع Supabase متصلًا ووظيفة generate-narration مع GEMINI_API_KEY. لم يُنشأ صوت وهمي.', 'error')
+      return
+    }
+    setNarrationLoading(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-narration', { body: { project_id: project.id } })
+      if (error) throw error
+      if (!data?.project) throw new Error(data?.message || 'لم تُرجع الخدمة ملف التعليق الصوتي.')
+      const updated = data.project
+      setProjects(current => current.map(item => item.id === updated.id ? { ...item, ...updated } : item))
+      setSelectedProject(current => current?.id === updated.id ? { ...current, ...updated } : current)
+      notify('تم تجهيز التعليق الصوتي وحفظه في تخزين خاص. لم يُنتج ملف MP4 حتى الآن.')
+    } catch (error) {
+      notify(error?.message || 'تعذّر توليد التعليق الصوتي. راجع إعداد خدمة Gemini وتخزين الملفات.', 'error')
+    } finally {
+      setNarrationLoading(false)
+    }
+  }
+
   async function handleGenerate(event) {
     event.preventDefault()
     if (!idea.trim()) { notify('اكتب وصف الفكرة الأول.', 'error'); return }
@@ -728,7 +790,7 @@ function App() {
   }
 
   if (onboardingOpen) {
-    return <><Onboarding setup={setup} setSetup={setSetup} step={setupStep} setStep={setSetupStep} onSubmit={handleSetupSubmit} onClose={() => { setOnboardingOpen(false); setOnboardingAdding(false); setEditingChannelId(null); setSetupError('') }} loading={setupSaving} adding={onboardingAdding} editing={Boolean(editingChannelId)} error={setupError} /><Toast toast={toast} onClose={() => setToast(null)} /></>
+    return <><Onboarding setup={setup} setSetup={setSetup} step={setupStep} setStep={setSetupStep} onSubmit={handleSetupSubmit} onClose={() => { setOnboardingOpen(false); setOnboardingAdding(false); setEditingChannelId(null); setSetupError('') }} loading={setupSaving} adding={onboardingAdding} editing={Boolean(editingChannelId)} error={setupError} onPreviewVoice={handleVoicePreview} voicePreviewUrl={voicePreviewUrl} voicePreviewLoading={voicePreviewLoading} clearVoicePreview={() => setVoicePreviewUrl(null)} /><Toast toast={toast} onClose={() => setToast(null)} /></>
   }
 
   return (
@@ -806,8 +868,8 @@ function App() {
         </div>
       </section>
       <Toast toast={toast} onClose={() => setToast(null)} />
-      {selectedProject && <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} onDownload={downloadProject} />}
-      {onboardingOpen && <Onboarding setup={setup} setSetup={setSetup} step={setupStep} setStep={setSetupStep} onSubmit={handleSetupSubmit} onClose={() => { setOnboardingOpen(false); setOnboardingAdding(false); setSetupError('') }} loading={setupSaving} adding={onboardingAdding} error={setupError} />}
+      {selectedProject && <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} onDownload={downloadProject} onGenerateNarration={handleGenerateNarration} narrationLoading={narrationLoading} />}
+      {onboardingOpen && <Onboarding setup={setup} setSetup={setSetup} step={setupStep} setStep={setSetupStep} onSubmit={handleSetupSubmit} onClose={() => { setOnboardingOpen(false); setOnboardingAdding(false); setSetupError('') }} loading={setupSaving} adding={onboardingAdding} editing={Boolean(editingChannelId)} error={setupError} onPreviewVoice={handleVoicePreview} voicePreviewUrl={voicePreviewUrl} voicePreviewLoading={voicePreviewLoading} clearVoicePreview={() => setVoicePreviewUrl(null)} />}
     </main>
   )
 }
