@@ -29,7 +29,7 @@ The GitHub token connected to this session cannot enable Pages for the repositor
 
 1. Apply `supabase/migrations/20261014000000_cuto_core.sql` in the Supabase SQL Editor (or with the Supabase CLI).
 2. Deploy the Edge Functions from this repo: `channel-director`, `recipe-director`, `voice-preview`, and `generate-narration`. The function folders contain the entrypoint source; use the Supabase CLI from a local checkout or paste each function into the Edge Function editor. Keep JWT verification enabled.
-3. Set `GEMINI_API_KEY` in Supabase Dashboard → Edge Functions → Secrets. Optionally set `GEMINI_MODEL` and `GEMINI_TTS_MODEL` there too. Never put these secrets in the browser or commit their real values.
+3. Set `GEMINI_API_KEY` in Supabase Dashboard → Edge Functions → Secrets. Optionally set `GEMINI_MODEL` (default `gemini-3.8-flash`) and `GEMINI_TTS_MODEL` (default `gemini-3.8-flash-tts`) there too. Never put these secrets in the browser or commit their real values.
 4. Ensure Email auth is enabled in Supabase Auth settings and configure your site URL / redirect URLs.
 5. The voice preview function returns a sample generated audio clip; the narration function generates the saved script as WAV and stores it in private `cuto-assets`, then returns a short-lived signed URL. Voice gender is a preference/instruction to the model, not a guarantee of a specific speaker identity or dialect quality.
 
