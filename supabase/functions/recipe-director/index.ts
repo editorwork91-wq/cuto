@@ -42,7 +42,8 @@ Deno.serve(async (request: Request) => {
     const projectId = typeof body.project_id === "string" ? body.project_id : "";
     const channelId = typeof body.channel_id === "string" ? body.channel_id : "";
     const idea = typeof body.idea === "string" ? body.idea.trim().slice(0, 1800) : "";
-    const duration = Math.min(180, Math.max(15, Number.isFinite(Number(body.duration_seconds)) ? Number(body.duration_seconds) : 45));
+    const duration = Math.min(60, Math.max(30, Number.isFinite(Number(body.duration_seconds)) ? Number(body.duration_seconds) : 45));
+    const sceneCount = Math.ceil(duration / 8);
     if (!projectId || !channelId || !idea) return respond(400, { error: "project_channel_and_idea_required" });
 
     const [projectResult, channelResult] = await Promise.all([
@@ -98,7 +99,7 @@ Rules:
 - Write spoken lines and on-screen text in ${language} using natural, clear phrasing.
 - Make the shot list visual and specific; avoid generating the same angle in every shot. Each ai_video_prompt must describe original AI-generated food imagery/video, vertical 9:16 composition, camera movement, lighting, action, food texture and continuity. Never use stock footage, stock libraries, Pexels, downloaded clips, generic natural scenery, or unrelated b-roll. Avoid readable text inside generated scenes; text is added during editing.
 - Make adjacent scenes preserve the same dish, ingredient appearance, utensils, countertop and visual style. Use continuity_notes for these details.
-- Generate exactly Math.ceil(${duration} / 8) scene entries (4 for 30 seconds, 6 for 45 seconds, 8 for 60 seconds). Each entry must include a detailed ai_video_prompt and continuity_notes. Allocate the scene seconds to approximate ${duration} seconds, and keep each visual beat appropriate for an individual 8-second Veo clip. This count requirement is critical for automatic rendering.
+- Generate exactly ${sceneCount} scene entries (4 for 30 seconds, 6 for 45 seconds, 8 for 60 seconds). Each entry must include a detailed ai_video_prompt and continuity_notes. Allocate the scene seconds to approximate ${duration} seconds, and keep each visual beat appropriate for an individual 8-second Veo clip. This count requirement is critical for automatic rendering.
 - Create a complete publishing_pack in the configured language/dialect for TikTok, Instagram Reels, YouTube Shorts, and Facebook Reels. Adapt each caption to the platform instead of duplicating the same copy. The YouTube Shorts title must be at most 100 characters. Keep each caption readable, specific to this recipe, natural, and ready to paste.
 - Add a concise CTA and a pinned-comment suggestion. Provide 3–6 relevant hashtags per platform; do not use unrelated trending tags or misleading engagement bait. Only make claims grounded in the recipe plan. Do not invent nutrition, health benefits, cooking facts, or ingredient quantities. Use the channel name only when it sounds natural.
 - subtitle_lines are separate from social-post captions: keep them short, readable, in the configured language/dialect, and timed within the target duration.
