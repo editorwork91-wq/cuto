@@ -134,8 +134,8 @@ function AuthScreen({ mode, setMode, onSubmit, loading, message, credentials, se
   )
 }
 
-function Onboarding({ setup, setSetup, step, setStep, onSubmit, onClose, loading, adding, editing, error }) {
-  const update = (key, value) => setSetup(current => ({ ...current, [key]: value }))
+function Onboarding({ setup, setSetup, step, setStep, onSubmit, onClose, loading, adding, editing, error, onPreviewVoice, voicePreviewUrl, voicePreviewLoading, clearVoicePreview }) {
+  const update = (key, value) => { if (key === 'voiceGender' || key === 'language') clearVoicePreview?.(); setSetup(current => ({ ...current, [key]: value })) }
   const next = e => {
     e.preventDefault()
     if (step < 3) { setStep(step + 1); return }
@@ -209,6 +209,14 @@ function Onboarding({ setup, setSetup, step, setStep, onSubmit, onClose, loading
                     <button type="button" className={`voice-option ${setup.voiceGender === 'female' ? 'selected' : ''}`} onClick={() => update('voiceGender', 'female')}><span className="voice-avatar"><AudioLines size={19} /></span><span><strong>صوت نسائي</strong><small>طبيعي وودود</small></span>{setup.voiceGender === 'female' && <CheckCircle2 size={18} />}</button>
                     <button type="button" className={`voice-option ${setup.voiceGender === 'male' ? 'selected' : ''}`} onClick={() => update('voiceGender', 'male')}><span className="voice-avatar"><Volume2 size={19} /></span><span><strong>صوت رجالي</strong><small>واضح ومتوازن</small></span>{setup.voiceGender === 'male' && <CheckCircle2 size={18} />}</button>
                   </div>
+                  <div className="voice-preview-row">
+                    <div className="voice-preview-copy"><strong>اسمع عيّنة من الصوت</strong><small>معاينة بالتفضيلات الحالية قبل حفظ القناة.</small></div>
+                    <button type="button" className="voice-preview-button" onClick={onPreviewVoice} disabled={voicePreviewLoading}>
+                      {voicePreviewLoading ? <LoaderCircle className="spin" size={15} /> : <Play size={15} fill="currentColor" />}
+                      {voicePreviewLoading ? 'جارٍ تجهيز العينة…' : 'معاينة الصوت'}
+                    </button>
+                  </div>
+                  {voicePreviewUrl && <audio className="voice-audio-preview" controls preload="none" src={voicePreviewUrl}>متصفحك لا يدعم تشغيل الصوت.</audio>}
                 </div>
                 <div className="field">
                   <label htmlFor="setup-language">اللغة واللهجة الافتراضية</label>
@@ -360,7 +368,7 @@ function ProjectCard({ project, onOpen }) {
   )
 }
 
-function ProjectModal({ project, onClose, onDownload }) {
+function ProjectModal({ project, onClose, onDownload, onGenerateNarration, narrationLoading }) {
   if (!project) return null
   const plan = project.recipe_plan || {}
   return (
@@ -375,6 +383,14 @@ function ProjectModal({ project, onClose, onDownload }) {
           {plan.hook && <div className="detail-section"><h3>الافتتاحية المقترحة</h3><p className="hook-quote">«{plan.hook}»</p></div>}
           {Array.isArray(plan.steps) && plan.steps.length > 0 && <div className="detail-section"><h3>تسلسل المشاهد</h3><div className="scene-list">{plan.steps.map((step, index) => <div className="scene-row" key={step.title || index}><span className="scene-index">{String(index + 1).padStart(2, '0')}</span><div><strong>{step.title || step.name}</strong><p>{step.detail || step.description}</p></div><small>{step.seconds ? `${step.seconds}ث` : ''}</small></div>)}</div></div>}
           {project.prompt_pack && <div className="detail-section"><h3>برومبتات القناة</h3>{Object.entries(project.prompt_pack).map(([key, value]) => <div className="prompt-line" key={key}><strong>{({identity:'الهوية',script:'السيناريو',voice:'الصوت',visuals:'المشاهد',edit:'المونتاج'})[key] || key}</strong><p>{value}</p></div>)}</div>}
+          {plan.voice_script && <div className="narration-panel">
+            <div className="narration-copy"><span className="narration-icon"><AudioLines size={17} /></span><div><strong>التعليق الصوتي</strong><p>{project.voice_audio_url ? 'ملف الصوت متاح للاستماع عبر رابط خاص مؤقت.' : project.voice_storage_path ? 'تم تخزين التعليق الصوتي بشكل خاص. يمكنك استرجاع رابط للاستماع.' : 'ولّد التعليق باللهجة والاختيار الصوتي الافتراضي للقناة.'}</p></div></div>
+            <button className="secondary-button narration-generate" onClick={() => onGenerateNarration?.(project)} disabled={narrationLoading}>
+              {narrationLoading ? <LoaderCircle className="spin" size={15} /> : <AudioLines size={15} />}
+              {narrationLoading ? 'جارٍ تجهيز التعليق…' : project.voice_audio_url || project.voice_storage_path ? 'إنشاء / استرجاع التعليق' : 'إنشاء التعليق الصوتي'}
+            </button>
+            {project.voice_audio_url && <audio className="voice-audio-preview" controls preload="none" src={project.voice_audio_url}>متصفحك لا يدعم تشغيل الصوت.</audio>}
+          </div>}
           <div className="render-notice"><Film size={18} /><div><strong>{project.video_url ? 'الفيديو جاهز للتنزيل' : 'خطة الإنتاج لا تعني أن ملف الفيديو قد أُنتج'}</strong><p>{project.video_url ? 'يمكن تنزيل الملف النهائي من رابط الفيديو.' : (plan.note || 'يلزم ربط مزوّد مشاهد وصوت ومحرك مونتاج قبل إنشاء ملف MP4 فعلي. لن يعرض CUTO اكتمالًا وهميًا.')}</p></div></div>
           <div className="modal-actions">{project.video_url && <a className="primary-button" href={project.video_url} target="_blank" rel="noreferrer"><Download size={16} /> فتح الفيديو</a>}<button className="secondary-button" onClick={() => onDownload(project)}><Download size={16} /> تنزيل تفاصيل المشروع</button><button className="ghost-button" onClick={onClose}>إغلاق</button></div>
         </div>
@@ -410,6 +426,9 @@ function App() {
   const [ideaDuration, setIdeaDuration] = useState('45')
   const [generating, setGenerating] = useState(false)
   const [generationPhase, setGenerationPhase] = useState('')
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState(null)
+  const [voicePreviewLoading, setVoicePreviewLoading] = useState(false)
+  const [narrationLoading, setNarrationLoading] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedProject, setSelectedProject] = useState(null)
@@ -419,7 +438,7 @@ function App() {
   const user = session?.user || null
 
   useEffect(() => {
-    if (activeChannel) setIdeaDuration(String(activeChannel.default_duration_seconds || 45))
+    if (activeChannel?.default_duration_seconds) setIdeaDuration(String(activeChannel.default_duration_seconds))
   }, [activeChannel?.id, activeChannel?.default_duration_seconds])
 
   const notify = (message, type = 'success') => setToast({ message, type })
@@ -546,7 +565,7 @@ function App() {
       return
     }
     setEditingChannelId(null)
-    setSetup({ ...defaultSetup, language: activeChannel?.language || 'ar-EG', voiceGender: activeChannel?.voice_gender || 'female', visualStyle: activeChannel?.visual_style || 'سينمائي واقعي', duration: String(activeChannel?.default_duration_seconds || 45) })
+    setSetup({ ...defaultSetup, duration: String(activeChannel?.default_duration_seconds || 45), language: activeChannel?.language || 'ar-EG', voiceGender: activeChannel?.voice_gender || 'female', visualStyle: activeChannel?.visual_style || 'سينمائي واقعي' })
     setSetupStep(1)
     setSetupError('')
     setOnboardingAdding(true)
@@ -573,9 +592,9 @@ function App() {
       language: setup.language,
       voice_gender: setup.voiceGender,
       visual_style: setup.visualStyle,
-      default_duration_seconds: Number(setup.duration || 45),
       captions_enabled: setup.captions,
       watermark_enabled: setup.watermark,
+      default_duration_seconds: Number(setup.duration || 45),
       prompt_pack: {},
     }
     try {
@@ -648,6 +667,49 @@ function App() {
       setSetupError(duplicate ? 'اسم المستخدم أو مساحة القناة مستخدمة بالفعل. جرّب اسمًا آخر.' : error?.message || 'تعذّر حفظ الإعدادات. تأكد من تطبيق قاعدة البيانات.')
       notify('لم يتم حفظ القناة.', 'error')
     } finally { setSetupSaving(false) }
+  }
+
+  async function handleVoicePreview() {
+    setVoicePreviewUrl(null)
+    if (!supabaseConfigured || !supabase || !user) {
+      notify('معاينة الصوت الحقيقية تتطلب ربط مشروع Supabase منفصل لـ CUTO، ونشر voice-preview وضبط GEMINI_API_KEY في أسرار الخادم.', 'error')
+      return
+    }
+    setVoicePreviewLoading(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('voice-preview', {
+        body: { voice_gender: setup.voiceGender, language: setup.language },
+      })
+      if (error) throw error
+      if (!data?.audio_data_url) throw new Error(data?.message || 'خدمة الصوت لم تُرجع ملف معاينة.')
+      setVoicePreviewUrl(data.audio_data_url)
+      notify('تم تجهيز عيّنة الصوت. اضغط تشغيل للاستماع.')
+    } catch (error) {
+      notify(error?.message || 'تعذّر تجهيز عيّنة الصوت. تأكد من نشر الوظيفة وإعداد مفتاح الصوت.', 'error')
+    } finally {
+      setVoicePreviewLoading(false)
+    }
+  }
+
+  async function handleGenerateNarration(project) {
+    if (!supabaseConfigured || !supabase || !user || project?.is_local_preview) {
+      notify('إنشاء الصوت يتطلب مشروع Supabase متصلًا ووظيفة generate-narration مع GEMINI_API_KEY. لم يُنشأ صوت وهمي.', 'error')
+      return
+    }
+    setNarrationLoading(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-narration', { body: { project_id: project.id } })
+      if (error) throw error
+      if (!data?.project) throw new Error(data?.message || 'لم تُرجع الخدمة ملف التعليق الصوتي.')
+      const updated = data.project
+      setProjects(current => current.map(item => item.id === updated.id ? { ...item, ...updated } : item))
+      setSelectedProject(current => current?.id === updated.id ? { ...current, ...updated } : current)
+      notify('تم تجهيز التعليق الصوتي وحفظه في تخزين خاص. لم يُنتج ملف MP4 حتى الآن.')
+    } catch (error) {
+      notify(error?.message || 'تعذّر توليد التعليق الصوتي. راجع إعداد خدمة Gemini وتخزين الملفات.', 'error')
+    } finally {
+      setNarrationLoading(false)
+    }
   }
 
   async function handleGenerate(event) {
@@ -739,7 +801,7 @@ function App() {
   }
 
   if (onboardingOpen) {
-    return <><Onboarding setup={setup} setSetup={setSetup} step={setupStep} setStep={setSetupStep} onSubmit={handleSetupSubmit} onClose={() => { setOnboardingOpen(false); setOnboardingAdding(false); setEditingChannelId(null); setSetupError('') }} loading={setupSaving} adding={onboardingAdding} editing={Boolean(editingChannelId)} error={setupError} /><Toast toast={toast} onClose={() => setToast(null)} /></>
+    return <><Onboarding setup={setup} setSetup={setSetup} step={setupStep} setStep={setSetupStep} onSubmit={handleSetupSubmit} onClose={() => { setOnboardingOpen(false); setOnboardingAdding(false); setEditingChannelId(null); setSetupError('') }} loading={setupSaving} adding={onboardingAdding} editing={Boolean(editingChannelId)} error={setupError} onPreviewVoice={handleVoicePreview} voicePreviewUrl={voicePreviewUrl} voicePreviewLoading={voicePreviewLoading} clearVoicePreview={() => setVoicePreviewUrl(null)} /><Toast toast={toast} onClose={() => setToast(null)} /></>
   }
 
   return (
@@ -814,7 +876,7 @@ function App() {
           {activeView === 'settings' && (
             <section className="page-section settings-page">
               <div className="settings-intro"><span className="settings-icon"><SlidersHorizontal size={21} /></span><div><span className="section-kicker">PERSONAL WORKSPACE</span><h2>تفضيلات الاستوديو</h2><p>الإعدادات الافتراضية تتبع القناة النشطة، ويمكنك تعديل كل قناة بشكل مستقل.</p></div></div>
-              <div className="settings-card"><div className="settings-card-header"><div><h3>إعدادات القناة النشطة</h3><p>{activeChannel?.name || 'لم يتم إعداد قناة بعد'}</p></div><span className="soft-tag">DEFAULTS</span></div>{activeChannel ? <><div className="settings-row"><span className="settings-row-icon"><Mic2 size={17} /></span><div><strong>الصوت الافتراضي</strong><small>نوع التعليق الصوتي لجميع المشروعات الجديدة</small></div><span className="settings-value">{activeChannel.voice_gender === 'male' ? 'رجالي' : 'نسائي'}</span></div><div className="settings-row"><span className="settings-row-icon"><Globe2 size={17} /></span><div><strong>اللغة</strong><small>اللغة أو اللهجة الافتراضية للمحتوى</small></div><span className="settings-value">{activeChannel.language === 'en' ? 'English' : activeChannel.language === 'tr' ? 'Türkçe' : activeChannel.language === 'ar' ? 'العربية الفصحى' : 'المصرية'}</span></div><div className="settings-row"><span className="settings-row-icon"><Video size={17} /></span><div><strong>مقاس الفيديو</strong><small>المقاس الأساسي لكل المخرجات</small></div><span className="settings-value">عمودي · 9:16</span></div><div className="settings-row"><span className="settings-row-icon"><Clock3 size={17} /></span><div><strong>المدة الافتراضية</strong><small>تُستخدم تلقائيًا عند بدء مشروع جديد</small></div><span className="settings-value">{activeChannel.default_duration_seconds || 45} ثانية</span></div><div className="settings-row"><span className="settings-row-icon"><ShieldCheck size={17} /></span><div><strong>هوية القناة</strong><small>علامة بيضاء أسفل الفيديو</small></div><span className="settings-value">{activeChannel.watermark_enabled ? 'مفعّلة' : 'متوقفة'}</span></div><div className="settings-row"><span className="settings-row-icon"><AudioLines size={17} /></span><div><strong>الترجمة</strong><small>عبارات تظهر متزامنة مع التعليق</small></div><span className="settings-value">{activeChannel.captions_enabled ? 'مفعّلة' : 'متوقفة'}</span></div><button className="secondary-button settings-edit-button" onClick={() => { setSetup({ ...defaultSetup, channelName: activeChannel.name || '', username: activeChannel.username || '', niche: activeChannel.niche || '', audience: activeChannel.audience || '', language: activeChannel.language || 'ar-EG', voiceGender: activeChannel.voice_gender || 'female', visualStyle: activeChannel.visual_style || 'سينمائي واقعي', captions: activeChannel.captions_enabled ?? true, watermark: activeChannel.watermark_enabled ?? true, duration: String(activeChannel.default_duration_seconds || 45) }); setSetupStep(1); setEditingChannelId(activeChannel.id); setOnboardingAdding(false); setOnboardingOpen(true); setSetupError('') }}><SlidersHorizontal size={16} /> مراجعة تفضيلات القناة</button></> : <EmptyProjects onCreate={startAddChannel} />}</div>
+              <div className="settings-card"><div className="settings-card-header"><div><h3>إعدادات القناة النشطة</h3><p>{activeChannel?.name || 'لم يتم إعداد قناة بعد'}</p></div><span className="soft-tag">DEFAULTS</span></div>{activeChannel ? <><div className="settings-row"><span className="settings-row-icon"><Mic2 size={17} /></span><div><strong>الصوت الافتراضي</strong><small>نوع التعليق الصوتي لجميع المشروعات الجديدة</small></div><span className="settings-value">{activeChannel.voice_gender === 'male' ? 'رجالي' : 'نسائي'}</span></div><div className="settings-row"><span className="settings-row-icon"><Globe2 size={17} /></span><div><strong>اللغة</strong><small>اللغة أو اللهجة الافتراضية للمحتوى</small></div><span className="settings-value">{activeChannel.language === 'en' ? 'English' : activeChannel.language === 'tr' ? 'Türkçe' : activeChannel.language === 'ar' ? 'العربية الفصحى' : 'المصرية'}</span></div><div className="settings-row"><span className="settings-row-icon"><Video size={17} /></span><div><strong>مقاس الفيديو</strong><small>المقاس الأساسي لكل المخرجات</small></div><span className="settings-value">عمودي · 9:16</span></div><div className="settings-row"><span className="settings-row-icon"><Clock3 size={17} /></span><div><strong>المدة الافتراضية</strong><small>تُستخدم تلقائيًا عند بدء مشروع جديد</small></div><span className="settings-value">{activeChannel.default_duration_seconds || 45} ثانية</span></div><div className="settings-row"><span className="settings-row-icon"><ShieldCheck size={17} /></span><div><strong>هوية القناة</strong><small>علامة بيضاء أسفل الفيديو</small></div><span className="settings-value">{activeChannel.watermark_enabled ? 'مفعّلة' : 'متوقفة'}</span></div><div className="settings-row"><span className="settings-row-icon"><AudioLines size={17} /></span><div><strong>الترجمة</strong><small>عبارات تظهر متزامنة مع التعليق</small></div><span className="settings-value">{activeChannel.captions_enabled ? 'مفعّلة' : 'متوقفة'}</span></div><button className="secondary-button settings-edit-button" onClick={() => { setSetup({ ...defaultSetup, channelName: activeChannel.name || '', username: activeChannel.username || '', niche: activeChannel.niche || '', audience: activeChannel.audience || '', duration: String(activeChannel.default_duration_seconds || 45), language: activeChannel.language || 'ar-EG', voiceGender: activeChannel.voice_gender || 'female', visualStyle: activeChannel.visual_style || 'سينمائي واقعي', captions: activeChannel.captions_enabled ?? true, watermark: activeChannel.watermark_enabled ?? true, duration: String(activeChannel.default_duration_seconds || 45) }); setSetupStep(1); setEditingChannelId(activeChannel.id); setOnboardingAdding(false); setOnboardingOpen(true); setSetupError('') }}><SlidersHorizontal size={16} /> مراجعة تفضيلات القناة</button></> : <EmptyProjects onCreate={startAddChannel} />}</div>
               <div className="settings-card"><div className="settings-card-header"><div><h3>الحساب والخصوصية</h3><p>نظرة على حالة بيئة العمل والاتصال</p></div><span className="settings-safe-icon"><ShieldCheck size={20} /></span></div><div className="settings-row"><span className="settings-row-icon"><UserRound size={17} /></span><div><strong>طريقة الدخول</strong><small>{user?.email || 'لم يتم ربط حساب حقيقي'}</small></div><span className="settings-value">{user ? 'Supabase Auth' : 'معاينة محلية'}</span></div><div className="settings-row"><span className="settings-row-icon"><Layers3 size={17} /></span><div><strong>حد القنوات</strong><small>العدد الأقصى لكل مستخدم</small></div><span className="settings-value">{channels.length}/2</span></div><div className="settings-row"><span className="settings-row-icon"><LockKeyhole size={17} /></span><div><strong>تخزين البيانات</strong><small>{supabaseConfigured ? 'مصادقة وقاعدة بيانات مهيأتان في الواجهة' : 'هذا المتصفح فقط — لا ترفع بيانات حساسة'}</small></div><span className={`status-tag ${supabaseConfigured ? 'is-live' : ''}`}>{supabaseConfigured ? 'Configured' : 'Preview'}</span></div></div>
             </section>
           )}
@@ -822,8 +884,8 @@ function App() {
         </div>
       </section>
       <Toast toast={toast} onClose={() => setToast(null)} />
-      {selectedProject && <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} onDownload={downloadProject} />}
-      {onboardingOpen && <Onboarding setup={setup} setSetup={setSetup} step={setupStep} setStep={setSetupStep} onSubmit={handleSetupSubmit} onClose={() => { setOnboardingOpen(false); setOnboardingAdding(false); setSetupError('') }} loading={setupSaving} adding={onboardingAdding} error={setupError} />}
+      {selectedProject && <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} onDownload={downloadProject} onGenerateNarration={handleGenerateNarration} narrationLoading={narrationLoading} />}
+      {onboardingOpen && <Onboarding setup={setup} setSetup={setSetup} step={setupStep} setStep={setSetupStep} onSubmit={handleSetupSubmit} onClose={() => { setOnboardingOpen(false); setOnboardingAdding(false); setSetupError('') }} loading={setupSaving} adding={onboardingAdding} editing={Boolean(editingChannelId)} error={setupError} onPreviewVoice={handleVoicePreview} voicePreviewUrl={voicePreviewUrl} voicePreviewLoading={voicePreviewLoading} clearVoicePreview={() => setVoicePreviewUrl(null)} />}
     </main>
   )
 }
