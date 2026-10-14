@@ -47,3 +47,10 @@ The project currently creates channel strategy and recipe-production briefs, and
 - Configure a real video provider and a queue/worker before advertising automatic MP4 rendering.
 - Use private Storage buckets and signed URLs for generated assets.
 - Run `npm run build` and validate RLS with separate test users before release.
+
+
+## Channel defaults and honest task status
+
+- Each channel stores its own default duration (30, 45, or 60 seconds); adding or switching channels applies that preference to the idea composer.
+- The workspace shows stage-based progress while saving a project and requesting the AI production plan. It does not present an indeterminate planning request as a measured render percentage.
+- Apply `supabase/migrations/20261014000001_channel_duration_default.sql` before deploying the per-channel duration preference.

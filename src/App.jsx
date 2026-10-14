@@ -38,7 +38,7 @@ function createPromptPack(channel) {
     script: `اكتب سيناريو فيديو قصير باللغة ${languageName}. ابدأ بخطاف جذاب دون مبالغة، ثم قدّم خطوات دقيقة وقابلة للتنفيذ، واختم بدعوة لطيفة للتفاعل. لا تخترع معلومات أو مقادير.`,
     voice: `التعليق الصوتي الافتراضي: صوت ${voiceName}، ${languageName}، بنبرة طبيعية ودافئة وسرعة مفهومة.`,
     visuals: `أنشئ قائمة لقطات عمودية 9:16 بأسلوب ${channel.visual_style || 'سينمائي واقعي'}، بإضاءة متناسقة، واستمرارية بصرية، ولقطات مقربة مفيدة. تجنب المشاهد غير المرتبطة بالمحتوى.`,
-    edit: `مقاس 9:16، ترجمة ${channel.captions_enabled ? 'عربية متزامنة' : 'متوقفة'}، وهوية القناة ${channel.watermark_enabled ? 'باللون الأبيض أسفل الفيديو' : 'من دون علامة مائية'}.`,
+    edit: `مقاس 9:16، مدة افتراضية ${channel.default_duration_seconds || 45} ثانية، ترجمة ${channel.captions_enabled ? 'عربية متزامنة' : 'متوقفة'}، وهوية القناة ${channel.watermark_enabled ? 'باللون الأبيض أسفل الفيديو' : 'من دون علامة مائية'}.`,
   }
 }
 
@@ -425,6 +425,7 @@ function App() {
   const [idea, setIdea] = useState('')
   const [ideaDuration, setIdeaDuration] = useState('45')
   const [generating, setGenerating] = useState(false)
+  const [generationPhase, setGenerationPhase] = useState('')
   const [voicePreviewUrl, setVoicePreviewUrl] = useState(null)
   const [voicePreviewLoading, setVoicePreviewLoading] = useState(false)
   const [narrationLoading, setNarrationLoading] = useState(false)
@@ -716,6 +717,7 @@ function App() {
     if (!idea.trim()) { notify('اكتب وصف الفكرة الأول.', 'error'); return }
     if (!activeChannel) { setSetup(defaultSetup); setOnboardingOpen(true); setSetupStep(1); return }
     setGenerating(true)
+    setGenerationPhase('saving')
     const originalIdea = idea.trim()
     try {
       if (supabaseConfigured && supabase && user) {
@@ -735,10 +737,12 @@ function App() {
         setIdea('')
         setActiveView('projects')
         setSelectedProject(project)
+        setGenerationPhase('planning')
         const { data, error: directorError } = await supabase.functions.invoke('recipe-director', { body: { project_id: project.id, channel_id: activeChannel.id, idea: originalIdea, duration_seconds: Number(ideaDuration) } })
         if (directorError) {
           notify('تم حفظ المشروع، لكن لم تُنتج خطة AI. انشر recipe-director واضبط مفتاح Gemini.', 'error')
         } else if (data?.project) {
+          setGenerationPhase('saving-result')
           setProjects(current => current.map(p => p.id === project.id ? data.project : p))
           setSelectedProject(data.project)
           notify('اكتمل إعداد السيناريو وقائمة المشاهد. إنتاج MP4 يحتاج مزود فيديو ومونتاج.')
@@ -746,6 +750,7 @@ function App() {
           notify('تم حفظ الفكرة في مشروعاتك.')
         }
       } else {
+        setGenerationPhase('preview')
         const project = {
           id: makeId(), user_id: 'local-preview', channel_id: activeChannel.id,
           title: originalIdea.slice(0, 100), idea: originalIdea, status: 'draft',
@@ -764,7 +769,7 @@ function App() {
       }
     } catch (error) {
       notify(error?.message || 'تعذّر حفظ المشروع. حاول مرة أخرى.', 'error')
-    } finally { setGenerating(false) }
+    } finally { setGenerating(false); setGenerationPhase('') }
   }
 
   function downloadProject(project) {
@@ -805,6 +810,11 @@ function App() {
       <section className="workspace">
         <Topbar activeView={activeView} activeChannel={activeChannel} setMobileOpen={setMobileOpen} user={user} onSignOut={handleSignOut} />
         <div className="workspace-body">
+          {generating && <section className="job-progress glass-panel" role="status" aria-live="polite">
+            <div className="job-progress-heading"><span className="job-progress-icon"><LoaderCircle size={18} className="spin" /></span><div><strong>{generationPhase === 'saving' ? 'جارٍ حفظ مشروعك' : generationPhase === 'planning' ? 'الذكاء الاصطناعي يجهّز خطة الإنتاج' : generationPhase === 'saving-result' ? 'جارٍ حفظ السيناريو وقائمة المشاهد' : 'جارٍ تجهيز معاينة محلية'}</strong><p>{generationPhase === 'planning' ? 'ننتظر استجابة خدمة التخطيط المتصلة. هذه المرحلة تنشئ خطة، وليست ملف فيديو نهائيًا.' : generationPhase === 'saving' ? 'نحفظ الفكرة ونربطها بالقناة النشطة.' : generationPhase === 'saving-result' ? 'وصلت الخطة ونجري تحديث بيانات المشروع.' : 'وضع المعاينة لا يستدعي خدمات ذكاء اصطناعي أو تصيير فيديو.'}</p></div><span className="job-live-pill">{generationPhase === 'planning' ? 'AI PLAN' : 'WORKING'}</span></div>
+            <div className="job-progress-track"><span className={generationPhase === 'planning' ? 'job-progress-indeterminate' : 'job-progress-milestone'} /></div>
+            <div className="job-progress-steps"><span className={['planning','saving-result'].includes(generationPhase) ? 'done' : 'active'}><i>{['planning','saving-result'].includes(generationPhase) ? '✓' : '1'}</i> حفظ الفكرة</span><span className={generationPhase === 'saving-result' ? 'done' : generationPhase === 'planning' ? 'active' : '' }><i>{generationPhase === 'saving-result' ? '✓' : '2'}</i> بناء الخطة</span><span className={generationPhase === 'saving-result' ? 'active' : '' }><i>3</i> حفظ النتيجة</span></div>
+          </section>}
           {activeView === 'home' && (
             <>
               <section className="welcome-hero">
@@ -866,7 +876,7 @@ function App() {
           {activeView === 'settings' && (
             <section className="page-section settings-page">
               <div className="settings-intro"><span className="settings-icon"><SlidersHorizontal size={21} /></span><div><span className="section-kicker">PERSONAL WORKSPACE</span><h2>تفضيلات الاستوديو</h2><p>الإعدادات الافتراضية تتبع القناة النشطة، ويمكنك تعديل كل قناة بشكل مستقل.</p></div></div>
-              <div className="settings-card"><div className="settings-card-header"><div><h3>إعدادات القناة النشطة</h3><p>{activeChannel?.name || 'لم يتم إعداد قناة بعد'}</p></div><span className="soft-tag">DEFAULTS</span></div>{activeChannel ? <><div className="settings-row"><span className="settings-row-icon"><Mic2 size={17} /></span><div><strong>الصوت الافتراضي</strong><small>نوع التعليق الصوتي لجميع المشروعات الجديدة</small></div><span className="settings-value">{activeChannel.voice_gender === 'male' ? 'رجالي' : 'نسائي'}</span></div><div className="settings-row"><span className="settings-row-icon"><Globe2 size={17} /></span><div><strong>اللغة</strong><small>اللغة أو اللهجة الافتراضية للمحتوى</small></div><span className="settings-value">{activeChannel.language === 'en' ? 'English' : activeChannel.language === 'tr' ? 'Türkçe' : activeChannel.language === 'ar' ? 'العربية الفصحى' : 'المصرية'}</span></div><div className="settings-row"><span className="settings-row-icon"><Video size={17} /></span><div><strong>مقاس الفيديو</strong><small>المقاس الأساسي لكل المخرجات</small></div><span className="settings-value">عمودي · 9:16</span></div><div className="settings-row"><span className="settings-row-icon"><ShieldCheck size={17} /></span><div><strong>هوية القناة</strong><small>علامة بيضاء أسفل الفيديو</small></div><span className="settings-value">{activeChannel.watermark_enabled ? 'مفعّلة' : 'متوقفة'}</span></div><div className="settings-row"><span className="settings-row-icon"><AudioLines size={17} /></span><div><strong>الترجمة</strong><small>عبارات تظهر متزامنة مع التعليق</small></div><span className="settings-value">{activeChannel.captions_enabled ? 'مفعّلة' : 'متوقفة'}</span></div><button className="secondary-button settings-edit-button" onClick={() => { setSetup({ ...defaultSetup, channelName: activeChannel.name || '', username: activeChannel.username || '', niche: activeChannel.niche || '', audience: activeChannel.audience || '', duration: String(activeChannel.default_duration_seconds || 45), language: activeChannel.language || 'ar-EG', voiceGender: activeChannel.voice_gender || 'female', visualStyle: activeChannel.visual_style || 'سينمائي واقعي', captions: activeChannel.captions_enabled ?? true, watermark: activeChannel.watermark_enabled ?? true }); setSetupStep(1); setEditingChannelId(activeChannel.id); setOnboardingAdding(false); setOnboardingOpen(true); setSetupError('') }}><SlidersHorizontal size={16} /> مراجعة تفضيلات القناة</button></> : <EmptyProjects onCreate={startAddChannel} />}</div>
+              <div className="settings-card"><div className="settings-card-header"><div><h3>إعدادات القناة النشطة</h3><p>{activeChannel?.name || 'لم يتم إعداد قناة بعد'}</p></div><span className="soft-tag">DEFAULTS</span></div>{activeChannel ? <><div className="settings-row"><span className="settings-row-icon"><Mic2 size={17} /></span><div><strong>الصوت الافتراضي</strong><small>نوع التعليق الصوتي لجميع المشروعات الجديدة</small></div><span className="settings-value">{activeChannel.voice_gender === 'male' ? 'رجالي' : 'نسائي'}</span></div><div className="settings-row"><span className="settings-row-icon"><Globe2 size={17} /></span><div><strong>اللغة</strong><small>اللغة أو اللهجة الافتراضية للمحتوى</small></div><span className="settings-value">{activeChannel.language === 'en' ? 'English' : activeChannel.language === 'tr' ? 'Türkçe' : activeChannel.language === 'ar' ? 'العربية الفصحى' : 'المصرية'}</span></div><div className="settings-row"><span className="settings-row-icon"><Video size={17} /></span><div><strong>مقاس الفيديو</strong><small>المقاس الأساسي لكل المخرجات</small></div><span className="settings-value">عمودي · 9:16</span></div><div className="settings-row"><span className="settings-row-icon"><Clock3 size={17} /></span><div><strong>المدة الافتراضية</strong><small>تُستخدم تلقائيًا عند بدء مشروع جديد</small></div><span className="settings-value">{activeChannel.default_duration_seconds || 45} ثانية</span></div><div className="settings-row"><span className="settings-row-icon"><ShieldCheck size={17} /></span><div><strong>هوية القناة</strong><small>علامة بيضاء أسفل الفيديو</small></div><span className="settings-value">{activeChannel.watermark_enabled ? 'مفعّلة' : 'متوقفة'}</span></div><div className="settings-row"><span className="settings-row-icon"><AudioLines size={17} /></span><div><strong>الترجمة</strong><small>عبارات تظهر متزامنة مع التعليق</small></div><span className="settings-value">{activeChannel.captions_enabled ? 'مفعّلة' : 'متوقفة'}</span></div><button className="secondary-button settings-edit-button" onClick={() => { setSetup({ ...defaultSetup, channelName: activeChannel.name || '', username: activeChannel.username || '', niche: activeChannel.niche || '', audience: activeChannel.audience || '', duration: String(activeChannel.default_duration_seconds || 45), language: activeChannel.language || 'ar-EG', voiceGender: activeChannel.voice_gender || 'female', visualStyle: activeChannel.visual_style || 'سينمائي واقعي', captions: activeChannel.captions_enabled ?? true, watermark: activeChannel.watermark_enabled ?? true }); setSetupStep(1); setEditingChannelId(activeChannel.id); setOnboardingAdding(false); setOnboardingOpen(true); setSetupError('') }}><SlidersHorizontal size={16} /> مراجعة تفضيلات القناة</button></> : <EmptyProjects onCreate={startAddChannel} />}</div>
               <div className="settings-card"><div className="settings-card-header"><div><h3>الحساب والخصوصية</h3><p>نظرة على حالة بيئة العمل والاتصال</p></div><span className="settings-safe-icon"><ShieldCheck size={20} /></span></div><div className="settings-row"><span className="settings-row-icon"><UserRound size={17} /></span><div><strong>طريقة الدخول</strong><small>{user?.email || 'لم يتم ربط حساب حقيقي'}</small></div><span className="settings-value">{user ? 'Supabase Auth' : 'معاينة محلية'}</span></div><div className="settings-row"><span className="settings-row-icon"><Layers3 size={17} /></span><div><strong>حد القنوات</strong><small>العدد الأقصى لكل مستخدم</small></div><span className="settings-value">{channels.length}/2</span></div><div className="settings-row"><span className="settings-row-icon"><LockKeyhole size={17} /></span><div><strong>تخزين البيانات</strong><small>{supabaseConfigured ? 'مصادقة وقاعدة بيانات مهيأتان في الواجهة' : 'هذا المتصفح فقط — لا ترفع بيانات حساسة'}</small></div><span className={`status-tag ${supabaseConfigured ? 'is-live' : ''}`}>{supabaseConfigured ? 'Configured' : 'Preview'}</span></div></div>
             </section>
           )}
