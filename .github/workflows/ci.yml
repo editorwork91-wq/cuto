@@ -53,4 +53,18 @@ jobs:
             supabase/functions/channel-director/index.ts \
             supabase/functions/recipe-director/index.ts \
             supabase/functions/voice-preview/index.ts \
-            supabase/functions/generate-narration/index.ts
+            supabase/functions/generate-narration/index.ts \
+            supabase/functions/modal-render-start/index.ts \
+            supabase/functions/modal-render-status/index.ts
+
+  modal-worker-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check Modal worker Python syntax
+        run: python -m py_compile modal/video_worker.py
