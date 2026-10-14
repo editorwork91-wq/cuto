@@ -602,3 +602,13 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+.project-status.running { color: #d7edaf; border-color: rgba(199,237,132,.25); }
+.project-status.running::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--green); margin-inline-end: 5px; box-shadow: 0 0 0 3px rgba(199,237,132,.08); }
+.project-progress { height: 3px; background: rgba(255,255,255,.07); overflow: hidden; }
+.project-progress span, .render-progress-track span { display: block; height: 100%; background: linear-gradient(90deg,#a3ca68,#d9f4a8); box-shadow: 0 0 12px rgba(199,237,132,.25); transition: width .3s ease; }
+.render-progress-panel { border: 1px solid rgba(199,237,132,.14); border-radius: 12px; padding: 13px; margin-top: 15px; background: rgba(199,237,132,.035); }
+.render-progress-panel > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #d2e6bc; font-size: 10px; }
+.render-progress-panel > div:first-child span { font: 11px 'DM Sans',sans-serif; color: var(--green); }
+.render-progress-track { height: 5px; border-radius: 99px; overflow: hidden; background: rgba(255,255,255,.08); margin: 11px 0 7px; }
+.render-progress-panel > small { display: block; font-size: 9px; color: #78867b; line-height: 1.7; }
