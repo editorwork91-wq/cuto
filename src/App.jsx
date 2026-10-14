@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, CircleHelp, Clapperboard, Clock3, CookingPot,
   Download, ExternalLink, FileText, Film, FolderKanban, Globe2, LayoutDashboard,
   LoaderCircle, LogOut, Menu, Mic2, MoreHorizontal, Plus, Search, Settings2,
-  ShieldCheck, SlidersHorizontal, Sparkles, Sprout, UserRound, WandSparkles,
+  ShieldCheck, SlidersHorizontal, Sparkles, Sprout, UserRound, WandSparkles, Copy, Hash,
   X, Play, LockKeyhole, Video, Volume2, Layers3
 } from 'lucide-react'
 import { supabase, supabaseConfigured } from './lib/supabase.js'
@@ -58,12 +58,24 @@ function buildPreviewPlan(idea, channel, duration = 45) {
       { title: 'اللقطة النهائية', detail: 'لقطة تقديم جذابة، ثم اسم القناة واسم المستخدم في أسفل الفيديو.', seconds: 6 },
     ],
     shot_list: [
-      'لقطة افتتاحية عمودية للطبق النهائي',
-      'لقطة علوية للمكونات مرتبة على سطح نظيف',
-      'لقطات قريبة لخطوات التحضير الفعلية',
-      'لقطة نهائية مع إضاءة ناعمة وهوية القناة',
+      'لقطة افتتاحية عمودية مولّدة بالذكاء الاصطناعي للطبق النهائي',
+      'لقطة علوية مولّدة بالذكاء الاصطناعي للمكونات مرتبة على سطح نظيف',
+      'لقطات قريبة مولّدة بالذكاء الاصطناعي لخطوات التحضير',
+      'لقطة نهائية مولّدة بالذكاء الاصطناعي مع هوية القناة',
     ],
-    note: 'معاينة توضيحية محلية فقط؛ لم يتم استدعاء نموذج ذكاء اصطناعي أو إنشاء ملف MP4.',
+    publishing_pack: {
+      primary_caption: `وصفة ${recipe || 'جديدة'} بخطوات واضحة ومن غير تعقيد 🍽️ احفظوا الفيديو وجرّبوها، وقولوا لنا رأيكم!`,
+      platforms: [
+        { id: 'tiktok', name: 'TikTok', caption: `مين هيجرّب ${recipe || 'الوصفة'}؟ 👀🍽️ شوفوا الخطوات للآخر واحفظوا الفيديو علشان ترجعوله وقت التحضير.`, cta: 'اكتبوا في التعليقات تحبوا الوصفة الجاية تكون إيه.', hashtags: ['#طبخ', '#وصفات', '#وصفات_سهلة', '#CUTO'] },
+        { id: 'instagram_reels', name: 'Instagram Reels', caption: `${recipe || 'وصفة جديدة'} بطريقة بسيطة وخطوات واضحة ✨🍽️ احفظوا الريل علشان تجربوها بعدين.`, cta: 'اعملوا منشن للشخص اللي هيحب يجربها معاكم.', hashtags: ['#وصفات', '#طبخ_بيتي', '#ريلز', '#CUTO'] },
+        { id: 'youtube_shorts', name: 'YouTube Shorts', title: `${(recipe || 'وصفة سهلة').slice(0, 76)} | وصفة سهلة #Shorts`, caption: `في الفيديو ده بنحضّر ${recipe || 'وصفة جديدة'} بخطوات واضحة. راجعوا المقادير المكتوبة داخل الفيديو قبل البدء، واشتركوا لمزيد من الوصفات.`, cta: 'اكتبوا اسم الوصفة اللي تحبوا تشوفوها بعد كده.', hashtags: ['#Shorts', '#وصفات', '#طبخ'] },
+        { id: 'facebook_reels', name: 'Facebook Reels', caption: `جربوا ${recipe || 'الوصفة'} دي وشاركونا النتيجة 🍽️ خطوات بسيطة ومناسبة إنكم ترجعوا لها وقت التحضير.`, cta: 'شاركونا نصائحكم أو تعديلاتكم في التعليقات.', hashtags: ['#وصفات', '#مطبخ', '#طبخ_بيتي', '#CUTO'] },
+      ],
+      pinned_comment: 'إيه الوصفة اللي تحبوا نشوفها في الفيديو الجاي؟ اكتبوا اقتراحكم 👇',
+      thumbnail_text: (recipe || 'وصفة سهلة').slice(0, 28),
+      seo_keywords: [recipe || 'وصفة جديدة', 'وصفات سهلة', 'طبخ منزلي'],
+    },
+    note: 'معاينة توضيحية محلية فقط؛ لم يتم استدعاء نموذج ذكاء اصطناعي أو إنشاء ملف MP4. الكابتشن المعروض مثال مبدئي.',
   }
 }
 
@@ -368,9 +380,11 @@ function ProjectCard({ project, onOpen }) {
   )
 }
 
-function ProjectModal({ project, onClose, onDownload, onGenerateNarration, narrationLoading }) {
+function ProjectModal({ project, onClose, onDownload, onGenerateNarration, narrationLoading, onCopyCaption }) {
   if (!project) return null
   const plan = project.recipe_plan || {}
+  const publishingPack = plan.publishing_pack || {}
+  const platformCaptions = Array.isArray(publishingPack.platforms) ? publishingPack.platforms : []
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={e => e.target === e.currentTarget && onClose()}>
       <section className="project-modal glass-panel" role="dialog" aria-modal="true" aria-labelledby="project-modal-title">
@@ -383,6 +397,19 @@ function ProjectModal({ project, onClose, onDownload, onGenerateNarration, narra
           {plan.hook && <div className="detail-section"><h3>الافتتاحية المقترحة</h3><p className="hook-quote">«{plan.hook}»</p></div>}
           {Array.isArray(plan.steps) && plan.steps.length > 0 && <div className="detail-section"><h3>تسلسل المشاهد</h3><div className="scene-list">{plan.steps.map((step, index) => <div className="scene-row" key={step.title || index}><span className="scene-index">{String(index + 1).padStart(2, '0')}</span><div><strong>{step.title || step.name}</strong><p>{step.detail || step.description}</p></div><small>{step.seconds ? `${step.seconds}ث` : ''}</small></div>)}</div></div>}
           {project.prompt_pack && <div className="detail-section"><h3>برومبتات القناة</h3>{Object.entries(project.prompt_pack).map(([key, value]) => <div className="prompt-line" key={key}><strong>{({identity:'الهوية',script:'السيناريو',voice:'الصوت',visuals:'المشاهد',edit:'المونتاج'})[key] || key}</strong><p>{value}</p></div>)}</div>}
+          {(publishingPack.primary_caption || platformCaptions.length > 0) && <div className="detail-section caption-package">
+            <div className="caption-package-heading"><div><h3>كابتشن النشر — جاهز لكل منصة</h3><p>نسخ مخصص للمنصة، مع دعوة للتفاعل وهاشتاجات مرتبطة بالوصفة، باللغة واللهجة المحددتين للقناة.</p></div><span className="caption-package-mark"><Hash size={15} /> SOCIAL</span></div>
+            {publishingPack.primary_caption && <div className="caption-primary"><strong>الكابتشن الأساسي</strong><p>{publishingPack.primary_caption}</p><button type="button" className="subtle-button" onClick={() => onCopyCaption?.({ id: 'primary', name: 'الكابتشن الأساسي', caption: publishingPack.primary_caption, hashtags: [] })}><Copy size={14} /> نسخ الكابتشن الأساسي</button></div>}
+            <div className="caption-platform-grid">{platformCaptions.map(item => <article className="caption-platform-card" key={item.id || item.name}>
+              <div className="caption-platform-header"><strong>{item.name || item.platform}</strong><button type="button" className="subtle-button" onClick={() => onCopyCaption?.(item)}><Copy size={13} /> نسخ</button></div>
+              {item.title && <p className="caption-platform-title">{item.title}</p>}
+              {item.caption && <p className="caption-platform-text">{item.caption}</p>}
+              {item.cta && <p className="caption-platform-cta">{item.cta}</p>}
+              {Array.isArray(item.hashtags) && item.hashtags.length > 0 && <p className="caption-hashtags">{item.hashtags.join(' ')}</p>}
+            </article>)}</div>
+            {publishingPack.pinned_comment && <div className="caption-pinned-comment"><strong>تعليق مقترح للتثبيت</strong><p>{publishingPack.pinned_comment}</p><button type="button" className="subtle-button" onClick={() => onCopyCaption?.({ id: 'pinned', name: 'التعليق المثبت', caption: publishingPack.pinned_comment, hashtags: [] })}><Copy size={13} /> نسخ التعليق</button></div>}
+            {Array.isArray(publishingPack.seo_keywords) && publishingPack.seo_keywords.length > 0 && <div className="caption-keywords"><strong>كلمات مفتاحية مقترحة</strong><p>{publishingPack.seo_keywords.join(' · ')}</p></div>}
+          </div>}
           {plan.voice_script && <div className="narration-panel">
             <div className="narration-copy"><span className="narration-icon"><AudioLines size={17} /></span><div><strong>التعليق الصوتي</strong><p>{project.voice_audio_url ? 'ملف الصوت متاح للاستماع عبر رابط خاص مؤقت.' : project.voice_storage_path ? 'تم تخزين التعليق الصوتي بشكل خاص. يمكنك استرجاع رابط للاستماع.' : 'ولّد التعليق باللهجة والاختيار الصوتي الافتراضي للقناة.'}</p></div></div>
             <button className="secondary-button narration-generate" onClick={() => onGenerateNarration?.(project)} disabled={narrationLoading}>
@@ -772,6 +799,35 @@ function App() {
     } finally { setGenerating(false); setGenerationPhase('') }
   }
 
+  async function handleCopyCaption(item) {
+    const hashtags = Array.isArray(item?.hashtags) ? item.hashtags.join(' ') : ''
+    const captionText = [
+      item?.title ? item.title : '',
+      item?.caption || item?.description || '',
+      item?.cta && !(item.caption || '').includes(item.cta) ? item.cta : '',
+      hashtags,
+    ].filter(Boolean).join('\n\n').trim()
+    if (!captionText) { notify('الكابتشن فارغ.', 'error'); return }
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(captionText)
+      } else {
+        const field = document.createElement('textarea')
+        field.value = captionText
+        field.style.position = 'fixed'
+        field.style.opacity = '0'
+        document.body.appendChild(field)
+        field.select()
+        const copied = document.execCommand('copy')
+        field.remove()
+        if (!copied) throw new Error('clipboard_unavailable')
+      }
+      notify(`تم نسخ ${item?.name || 'الكابتشن'} جاهزًا للنشر.`)
+    } catch {
+      notify('لم يسمح المتصفح بالنسخ. حدّد النص وانسخه يدويًا.', 'error')
+    }
+  }
+
   function downloadProject(project) {
     try {
       const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json;charset=utf-8' })
@@ -884,7 +940,7 @@ function App() {
         </div>
       </section>
       <Toast toast={toast} onClose={() => setToast(null)} />
-      {selectedProject && <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} onDownload={downloadProject} onGenerateNarration={handleGenerateNarration} narrationLoading={narrationLoading} />}
+      {selectedProject && <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} onDownload={downloadProject} onGenerateNarration={handleGenerateNarration} narrationLoading={narrationLoading} onCopyCaption={handleCopyCaption} />}
       {onboardingOpen && <Onboarding setup={setup} setSetup={setSetup} step={setupStep} setStep={setSetupStep} onSubmit={handleSetupSubmit} onClose={() => { setOnboardingOpen(false); setOnboardingAdding(false); setSetupError('') }} loading={setupSaving} adding={onboardingAdding} editing={Boolean(editingChannelId)} error={setupError} onPreviewVoice={handleVoicePreview} voicePreviewUrl={voicePreviewUrl} voicePreviewLoading={voicePreviewLoading} clearVoicePreview={() => setVoicePreviewUrl(null)} />}
     </main>
   )
