@@ -11,3 +11,9 @@ verify_jwt = true
 
 [functions.generate-narration]
 verify_jwt = true
+
+[functions.modal-render-start]
+verify_jwt = true
+
+[functions.modal-render-status]
+verify_jwt = true
