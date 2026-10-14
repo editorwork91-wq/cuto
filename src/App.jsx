@@ -380,7 +380,7 @@ function ProjectCard({ project, onOpen }) {
   )
 }
 
-function ProjectModal({ project, onClose, onDownload, onGenerateNarration, narrationLoading, onCopyCaption }) {
+function ProjectModal({ project, onClose, onDownload, onGenerateNarration, narrationLoading, onCopyCaption, onGenerateVideo, videoGenerationLoading }) {
   if (!project) return null
   const plan = project.recipe_plan || {}
   const publishingPack = plan.publishing_pack || {}
@@ -418,7 +418,14 @@ function ProjectModal({ project, onClose, onDownload, onGenerateNarration, narra
             </button>
             {project.voice_audio_url && <audio className="voice-audio-preview" controls preload="none" src={project.voice_audio_url}>متصفحك لا يدعم تشغيل الصوت.</audio>}
           </div>}
-          <div className="render-notice"><Film size={18} /><div><strong>{project.video_url ? 'الفيديو جاهز للتنزيل' : 'خطة الإنتاج لا تعني أن ملف الفيديو قد أُنتج'}</strong><p>{project.video_url ? 'يمكن تنزيل الملف النهائي من رابط الفيديو.' : (plan.note || 'يلزم ربط مزوّد مشاهد وصوت ومحرك مونتاج قبل إنشاء ملف MP4 فعلي. لن يعرض CUTO اكتمالًا وهميًا.')}</p></div></div>
+          {!project.is_local_preview && !project.video_storage_path && Array.isArray(plan.shot_list) && plan.shot_list.length > 0 && <div className="video-production-actions">
+            <button className="primary-button full-width" type="button" onClick={() => onGenerateVideo?.(project)} disabled={videoGenerationLoading || ['queued', 'processing'].includes(project.status)}>
+              {videoGenerationLoading || ['queued', 'processing'].includes(project.status) ? <LoaderCircle className="spin" size={17} /> : <Clapperboard size={17} />}
+              {videoGenerationLoading ? 'جارٍ تجهيز الصوت وإرسال المشاهد…' : ['queued', 'processing'].includes(project.status) ? 'جاري إنتاج الفيديو...' : project.status === 'failed' ? 'إعادة محاولة إنتاج الفيديو' : 'ولّد الفيديو الكامل بالذكاء الاصطناعي'}
+            </button>
+            <p>Gemini يجهّز الخطة، وVeo يولّد كل مشهد، وصوت Gemini TTS يُضاف للمونتاج مع الترجمة واسم القناة. لا تُستخدم لقطات جاهزة.</p>
+          </div>}
+          <div className="render-notice"><Film size={18} /><div><strong>{project.video_storage_path || project.video_url ? 'الفيديو جاهز للتنزيل' : 'خطة الإنتاج لا تعني أن ملف الفيديو قد أُنتج'}</strong><p>{project.video_storage_path || project.video_url ? 'الملف النهائي محفوظ في مساحة CUTO الخاصة.' : (plan.note || 'أنشئ خطة الفيديو أولًا؛ لا يعرض CUTO اكتمالًا وهميًا قبل وجود ملف MP4 فعلي.')}</p></div></div>
           <div className="modal-actions">{project.video_url && <a className="primary-button" href={project.video_url} target="_blank" rel="noreferrer"><Download size={16} /> فتح الفيديو</a>}<button className="secondary-button" onClick={() => onDownload(project)}><Download size={16} /> تنزيل تفاصيل المشروع</button><button className="ghost-button" onClick={onClose}>إغلاق</button></div>
         </div>
       </section>
@@ -456,6 +463,7 @@ function App() {
   const [voicePreviewUrl, setVoicePreviewUrl] = useState(null)
   const [voicePreviewLoading, setVoicePreviewLoading] = useState(false)
   const [narrationLoading, setNarrationLoading] = useState(false)
+  const [videoGenerationProjectId, setVideoGenerationProjectId] = useState(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedProject, setSelectedProject] = useState(null)
