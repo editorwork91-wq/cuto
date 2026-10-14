@@ -85,7 +85,7 @@ create or replace function public.cuto_protect_render_state()
 returns trigger
 language plpgsql
 set search_path = ''
-as $
+as $$
 begin
   if auth.uid() is not null then
     if tg_op = 'INSERT' then
@@ -103,7 +103,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists video_projects_protect_render_state on public.video_projects;
 create trigger video_projects_protect_render_state
