@@ -81,6 +81,7 @@ Audience: ${channel.audience || "Infer from the channel description, and say whe
 Default language/dialect: ${language}
 Preferred voice: ${voice}
 Visual style: ${channel.visual_style}
+Default duration: ${channel.default_duration_seconds || 45} seconds
 Captions enabled: ${channel.captions_enabled}
 White channel username watermark at bottom: ${channel.watermark_enabled}
 Rules:

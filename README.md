@@ -46,3 +46,10 @@ The initial project creates channel strategy and recipe-production briefs. A rea
 - Configure a real video provider and a queue/worker before advertising automatic MP4 rendering.
 - Use private Storage buckets and signed URLs for generated assets.
 - Run `npm run build` and validate RLS with separate test users before release.
+
+
+## Additional channel defaults and task status
+
+- Each channel stores its own default duration (30, 45, or 60 seconds); creating or switching channels applies that preference to the idea composer.
+- The workspace shows task milestones for saving a project and requesting/saving the AI production plan. The animated track is indeterminate while the Edge Function request is in flight; it is not presented as a measured percentage of final video rendering.
+- Apply the additive migration `supabase/migrations/20261014000001_channel_duration_default.sql` before deploying this revision.
