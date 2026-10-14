@@ -115,7 +115,11 @@ Deno.serve(async (request: Request) => {
         );
         const operationPayload = await operationResponse.json().catch(() => ({}));
         if (!operationResponse.ok) {
-          return reply(202, { status: job.status, progress: job.progress, stage: "في انتظار تأكيد حالة أحد مشاهد Veo", poll_again: true });
+          if (operationResponse.status === 429 || operationResponse.status >= 500) {
+            return reply(202, { status: job.status, progress: job.progress, stage: "في انتظار استجابة Veo بعد ضغط مؤقت", poll_again: true });
+          }
+          await markFailed(job.id, projectId, user.id, "Veo operation status request failed with HTTP " + operationResponse.status);
+          return reply(502, { error: "veo_operation_check_failed", message: "تعذّر التحقق من عملية Veo. يمكن إعادة محاولة المشروع." });
         }
         if (!operationPayload?.done) continue;
 
@@ -138,7 +142,11 @@ Deno.serve(async (request: Request) => {
 
         const videoResponse = await fetch(videoUri, { headers: { "x-goog-api-key": geminiKey } });
         if (!videoResponse.ok) {
-          return reply(202, { status: job.status, progress: job.progress, stage: "المشهد جاهز لكن التنزيل من Google سيعاد في الفحص التالي", poll_again: true });
+          if (videoResponse.status === 429 || videoResponse.status >= 500) {
+            return reply(202, { status: job.status, progress: job.progress, stage: "المشهد جاهز؛ يجري إعادة محاولة تنزيله", poll_again: true });
+          }
+          await markFailed(job.id, projectId, user.id, "Generated video download failed with HTTP " + videoResponse.status);
+          return reply(502, { error: "veo_scene_download_failed", message: "تعذّر تنزيل أحد مشاهد Veo إلى التخزين الخاص." });
         }
         const videoBytes = new Uint8Array(await videoResponse.arrayBuffer());
         if (!videoBytes.length || videoBytes.length > 52428800) {
