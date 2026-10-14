@@ -42,11 +42,14 @@ create table if not exists public.video_projects (
   prompt_pack jsonb not null default '{}'::jsonb,
   thumbnail_url text,
   video_url text,
+  voice_storage_path text,
   error_message text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint project_channel_owner_consistency unique (id, user_id)
 );
+
+alter table public.video_projects add column if not exists voice_storage_path text;
 
 create index if not exists channels_user_created_idx on public.channels (user_id, created_at desc);
 create index if not exists projects_user_created_idx on public.video_projects (user_id, created_at desc);
