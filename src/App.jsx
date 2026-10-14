@@ -423,7 +423,7 @@ function ProjectModal({ project, onClose, onDownload, onGenerateNarration, narra
               {videoGenerationLoading || ['queued', 'processing'].includes(project.status) ? <LoaderCircle className="spin" size={17} /> : <Clapperboard size={17} />}
               {videoGenerationLoading ? 'جارٍ تجهيز الصوت وإرسال المشاهد…' : ['queued', 'processing'].includes(project.status) ? 'جاري إنتاج الفيديو...' : project.status === 'failed' ? 'إعادة محاولة إنتاج الفيديو' : 'ولّد الفيديو الكامل بالذكاء الاصطناعي'}
             </button>
-            <p>Gemini يجهّز الخطة، وVeo يولّد كل مشهد، وصوت Gemini TTS يُضاف للمونتاج مع الترجمة واسم القناة. لا تُستخدم لقطات جاهزة.</p>
+            <p>Gemini يخطط، وModal يشغّل موديل فيديو مولّد، وصوت Gemini AI Studio يُدمج مع الترجمة واسم القناة. لا تُستخدم لقطات جاهزة.</p>
           </div>}
           <div className="render-notice"><Film size={18} /><div><strong>{project.video_storage_path || project.video_url ? 'الفيديو جاهز للتنزيل' : 'خطة الإنتاج لا تعني أن ملف الفيديو قد أُنتج'}</strong><p>{project.video_storage_path || project.video_url ? 'الملف النهائي محفوظ في مساحة CUTO الخاصة.' : (plan.note || 'أنشئ خطة الفيديو أولًا؛ لا يعرض CUTO اكتمالًا وهميًا قبل وجود ملف MP4 فعلي.')}</p></div></div>
           <div className="modal-actions">{project.video_url && <a className="primary-button" href={project.video_url} target="_blank" rel="noreferrer"><Download size={16} /> فتح الفيديو</a>}<button className="secondary-button" onClick={() => onDownload(project)}><Download size={16} /> تنزيل تفاصيل المشروع</button><button className="ghost-button" onClick={onClose}>إغلاق</button></div>
@@ -567,7 +567,7 @@ function App() {
       for (const projectId of projectIds) {
         if (!alive) return
         try {
-          const { data, error } = await supabase.functions.invoke('veo-render-status', { body: { project_id: projectId } })
+          const { data, error } = await supabase.functions.invoke('modal-render-status', { body: { project_id: projectId } })
           if (error) {
             console.warn('CUTO video status polling failed:', error.message)
             continue
@@ -838,7 +838,7 @@ function App() {
         setSelectedProject(current => current?.id === currentProject.id ? { ...current, ...currentProject } : current)
       }
 
-      const { data, error } = await supabase.functions.invoke('veo-render-start', {
+      const { data, error } = await supabase.functions.invoke('modal-render-start', {
         body: { project_id: currentProject.id },
       })
       if (error) throw error
@@ -850,7 +850,7 @@ function App() {
         setProjects(current => current.map(item => item.id === freshProject.id ? { ...item, ...freshProject } : item))
         setSelectedProject(current => current?.id === freshProject.id ? { ...current, ...freshProject } : current)
       }
-      notify('بدأ CUTO توليد المشاهد الأصلية عبر Veo، وسيُحدّث التقدم وفق حالة التوليد والرندر الفعلية.')
+      notify('بدأ CUTO توليد المقاطع الأصلية على Modal باستخدام LTX-2.5، وسيظهر التقدم من حالات التوليد والرندر الفعلية.')
     } catch (error) {
       setNarrationLoading(false)
       notify(error?.message || 'تعذّر بدء إنتاج الفيديو. تأكد من إعداد أسرار Gemini والرندر ونشر وظائف CUTO.', 'error')
