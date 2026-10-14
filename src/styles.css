@@ -440,6 +440,9 @@ a { color: inherit; }
 .caption-pinned-comment { margin-top: 10px; }
 .caption-keywords { margin-top: 10px; padding: 0 2px; }
 .caption-keywords p { color: #9faab3; font-size: 10px; line-height: 1.8; margin: 3px 0 0; overflow-wrap: anywhere; }
+.video-production-actions { margin-top: 18px; border: 1px solid rgba(199,237,132,.18); border-radius: 13px; padding: 13px; background: linear-gradient(135deg, rgba(199,237,132,.065), rgba(255,255,255,.012)); }
+.video-production-actions > .primary-button { width: 100%; min-height: 45px; gap: 8px; }
+.video-production-actions > p { font-size: 10px; color: #a4b0b7; line-height: 1.9; margin: 9px 2px 0; }
 .render-notice { display: flex; gap: 10px; align-items: flex-start; margin-top: 18px; border: 1px solid rgba(233,185,117,.14); border-radius: 12px; padding: 13px; background: rgba(233,185,117,.04); }
 .render-notice > svg { color: var(--amber); flex: 0 0 auto; }
 .render-notice strong { display: block; color: #d8c2a6; font-size: 10px; margin: 0 0 4px; }
