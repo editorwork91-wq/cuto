@@ -593,7 +593,8 @@ function App() {
           setActiveView('settings')
           notify('تم حفظ إعدادات القناة. جارٍ تحديث حزمة البرومبتات.')
         } else {
-          const slot = channels.length + 1
+          const slot = [1, 2].find(candidate => !channels.some(existing => Number(existing.slot) === candidate))
+          if (!slot) throw new Error('وصلت للحد الأقصى: قناتان لكل حساب.')
           const { data, error } = await supabase.from('channels').insert({ ...channelPayload, user_id: user.id, slot }).select().single()
           if (error) throw error
           channel = data
