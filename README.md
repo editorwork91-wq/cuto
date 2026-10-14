@@ -12,6 +12,10 @@ A premium RTL-first creator workspace for turning a channel brief into a consist
 - Recipe project creation and status records.
 - Demo mode when Supabase isn't configured; it is explicitly local preview, not connected account storage or real video rendering.
 
+## Keys and provider setup
+
+Read the Arabic step-by-step guide: [`docs/KEYS_SETUP_AR.md`](docs/KEYS_SETUP_AR.md). It explains where to get Supabase and Gemini credentials, where to store server secrets, and which integrations are still required for actual MP4 output.
+
 ## Local development
 
 1. Install Node.js 20 or newer.
