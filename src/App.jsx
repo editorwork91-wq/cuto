@@ -792,6 +792,73 @@ function App() {
     }
   }
 
+  async function openProject(project) {
+    if (!project) return
+    let nextProject = project
+    if (project.video_storage_path && supabaseConfigured && supabase && user) {
+      try {
+        const { data, error } = await supabase.storage.from('cuto-assets').createSignedUrl(project.video_storage_path, 3600)
+        if (!error && data?.signedUrl) nextProject = { ...project, video_url: data.signedUrl }
+      } catch {
+        // Keep project details available even if renewing the temporary video URL fails.
+      }
+    }
+    setSelectedProject(nextProject)
+  }
+
+  async function handleGenerateVideo(project) {
+    if (!supabaseConfigured || !supabase || !user || !project || project.is_local_preview) {
+      notify('إنتاج MP4 يحتاج حساب Supabase متصلًا ونشر وظائف CUTO. معاينة المتصفح وحدها لا تولّد فيديو حقيقيًا.', 'error')
+      return
+    }
+    if (!project.recipe_plan?.shot_list?.length || !project.recipe_plan?.voice_script) {
+      notify('أعد تجهيز خطة Gemini أولًا حتى تتوفر المشاهد والسيناريو الصوتي.', 'error')
+      return
+    }
+    if (project.video_storage_path) {
+      await openProject(project)
+      return
+    }
+
+    setVideoGenerationProjectId(project.id)
+    try {
+      let currentProject = project
+      if (!currentProject.voice_storage_path) {
+        setNarrationLoading(true)
+        const { data: narrationData, error: narrationError } = await supabase.functions.invoke('generate-narration', {
+          body: { project_id: currentProject.id },
+        })
+        setNarrationLoading(false)
+        if (narrationError) throw narrationError
+        if (!narrationData?.project?.voice_storage_path) {
+          throw new Error(narrationData?.message || 'تعذّر تجهيز صوت Gemini AI Studio.')
+        }
+        currentProject = narrationData.project
+        setProjects(current => current.map(item => item.id === currentProject.id ? { ...item, ...currentProject } : item))
+        setSelectedProject(current => current?.id === currentProject.id ? { ...current, ...currentProject } : current)
+      }
+
+      const { data, error } = await supabase.functions.invoke('veo-render-start', {
+        body: { project_id: currentProject.id },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.message || data.error)
+      const { data: freshProject, error: refreshError } = await supabase
+        .from('video_projects').select('*').eq('id', currentProject.id).eq('user_id', user.id).single()
+      if (refreshError) throw refreshError
+      if (freshProject) {
+        setProjects(current => current.map(item => item.id === freshProject.id ? { ...item, ...freshProject } : item))
+        setSelectedProject(current => current?.id === freshProject.id ? { ...current, ...freshProject } : current)
+      }
+      notify('بدأ CUTO توليد المشاهد الأصلية عبر Veo، وسيُحدّث التقدم وفق حالة التوليد والرندر الفعلية.')
+    } catch (error) {
+      setNarrationLoading(false)
+      notify(error?.message || 'تعذّر بدء إنتاج الفيديو. تأكد من إعداد أسرار Gemini والرندر ونشر وظائف CUTO.', 'error')
+    } finally {
+      setVideoGenerationProjectId(null)
+    }
+  }
+
   async function handleGenerate(event) {
     event.preventDefault()
     if (!idea.trim()) { notify('اكتب وصف الفكرة الأول.', 'error'); return }
@@ -957,7 +1024,7 @@ function App() {
 
               <section className="section-block recent-block">
                 <div className="section-heading compact-heading"><div><span className="section-kicker">YOUR WORKSPACE</span><h2>آخر مشروعاتك</h2></div><button className="link-button" onClick={() => setActiveView('projects')}>كل المشروعات <ArrowUpLeft size={15} /></button></div>
-                {filteredProjects.length ? <div className="project-grid">{filteredProjects.slice(0, 3).map(project => <ProjectCard key={project.id} project={project} onOpen={setSelectedProject} />)}</div> : <div className="recent-empty"><span className="recent-empty-icon"><Film size={19} /></span><div><strong>أول مشروع لسه مستني فكرتك</strong><p>بعد إعداد القناة، اكتب أي فكرة في المربع فوق لبدء خطة المحتوى.</p></div><button className="subtle-button" onClick={() => document.getElementById('idea-input')?.focus()}>اكتب فكرة <ArrowUpLeft size={14} /></button></div>}
+                {filteredProjects.length ? <div className="project-grid">{filteredProjects.slice(0, 3).map(project => <ProjectCard key={project.id} project={project} onOpen={openProject} />)}</div> : <div className="recent-empty"><span className="recent-empty-icon"><Film size={19} /></span><div><strong>أول مشروع لسه مستني فكرتك</strong><p>بعد إعداد القناة، اكتب أي فكرة في المربع فوق لبدء خطة المحتوى.</p></div><button className="subtle-button" onClick={() => document.getElementById('idea-input')?.focus()}>اكتب فكرة <ArrowUpLeft size={14} /></button></div>}
               </section>
             </>
           )}
@@ -966,7 +1033,7 @@ function App() {
             <section className="page-section">
               <div className="page-toolbar"><div className="search-box"><Search size={17} /><input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="ابحث في مشروعاتك…" /><kbd>⌕</kbd></div><button className="primary-button" onClick={() => setActiveView('home')}><Plus size={17} /> مشروع جديد</button></div>
               <div className="project-page-summary"><div><span className="summary-label">إجمالي المشروعات</span><strong>{filteredProjects.length.toLocaleString('ar-EG')}</strong></div><div><span className="summary-label">نسبة الفيديوهات المنتَجة</span><strong>{filteredProjects.filter(p => p.video_url).length ? Math.round(filteredProjects.filter(p => p.video_url).length / Math.max(1, filteredProjects.length) * 100) : 0}<small>%</small></strong></div><div><span className="summary-label">المقاس الافتراضي</span><strong>9:16</strong></div></div>
-              {filteredProjects.length ? <div className="project-grid projects-full-grid">{filteredProjects.map(project => <ProjectCard key={project.id} project={project} onOpen={setSelectedProject} />)}</div> : <EmptyProjects onCreate={() => setActiveView('home')} />}
+              {filteredProjects.length ? <div className="project-grid projects-full-grid">{filteredProjects.map(project => <ProjectCard key={project.id} project={project} onOpen={openProject} />)}</div> : <EmptyProjects onCreate={() => setActiveView('home')} />}
             </section>
           )}
 
@@ -993,7 +1060,7 @@ function App() {
         </div>
       </section>
       <Toast toast={toast} onClose={() => setToast(null)} />
-      {selectedProject && <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} onDownload={downloadProject} onGenerateNarration={handleGenerateNarration} narrationLoading={narrationLoading} onCopyCaption={handleCopyCaption} />}
+      {selectedProject && <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} onDownload={downloadProject} onGenerateNarration={handleGenerateNarration} narrationLoading={narrationLoading} onCopyCaption={handleCopyCaption} onGenerateVideo={handleGenerateVideo} videoGenerationLoading={videoGenerationProjectId === selectedProject.id} />}
       {onboardingOpen && <Onboarding setup={setup} setSetup={setSetup} step={setupStep} setStep={setSetupStep} onSubmit={handleSetupSubmit} onClose={() => { setOnboardingOpen(false); setOnboardingAdding(false); setSetupError('') }} loading={setupSaving} adding={onboardingAdding} editing={Boolean(editingChannelId)} error={setupError} onPreviewVoice={handleVoicePreview} voicePreviewUrl={voicePreviewUrl} voicePreviewLoading={voicePreviewLoading} clearVoicePreview={() => setVoicePreviewUrl(null)} />}
     </main>
   )
