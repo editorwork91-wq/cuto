@@ -344,13 +344,17 @@ function ProgressRing({ value = 0 }) {
 
 function ProjectCard({ project, onOpen }) {
   const isCompleted = project.status === 'completed'
+  const isRunning = ['queued', 'processing'].includes(project.status)
+  const statusLabel = isCompleted ? 'مكتمل' : project.status === 'failed' ? 'تعذّر' : project.status === 'queued' ? 'في الانتظار' : project.status === 'processing' ? 'قيد التنفيذ' : project.status === 'planning' ? 'تجهيز الخطة' : 'مسودة'
+  const progress = Math.max(0, Math.min(100, Number(project.progress) || 0))
   return (
     <button className="project-card" onClick={() => onOpen(project)}>
       <div className="project-card-image" style={{ backgroundImage: `linear-gradient(180deg, transparent, rgba(4,7,9,.68)), url("${project.thumbnail_url || HERO_IMAGE}")` }}>
-        <span className={`project-status ${isCompleted ? 'complete' : ''}`}>{isCompleted ? 'مكتمل' : project.status === 'failed' ? 'تعذّر' : 'مسودة'}</span>
+        <span className={`project-status ${isCompleted ? 'complete' : ''} ${isRunning ? 'running' : ''}`}>{statusLabel}</span>
         <span className="project-format">9:16</span>
         <span className="project-image-title">{project.title || project.idea}</span>
       </div>
+      {isRunning && <div className="project-progress" aria-label={`تقدم حقيقي: ${progress}%`}><span style={{ width: `${progress}%` }} /></div>}
       <div className="project-card-body"><span className="project-meta"><Clock3 size={13} /> {new Date(project.created_at || Date.now()).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}</span><span className="project-open">فتح المشروع <ArrowUpLeft size={14} /></span></div>
     </button>
   )
@@ -366,6 +370,7 @@ function ProjectModal({ project, onClose, onDownload }) {
         <div className="modal-hero-image" style={{ backgroundImage: `linear-gradient(0deg, rgba(8,11,16,.92), rgba(8,11,16,.05)), url("${project.thumbnail_url || HERO_IMAGE}")` }}><span className="ratio-badge">VERTICAL · 9:16</span><h2 id="project-modal-title">{project.title || project.idea}</h2></div>
         <div className="modal-content">
           <div className="modal-state-line"><span className="state-indicator" /> <span>{project.stage || 'مسودة محفوظة'}</span><span className="muted">{project.duration_seconds || 45} ثانية مستهدفة</span></div>
+          {['queued', 'processing'].includes(project.status) && <div className="render-progress-panel"><div><strong>{project.stage || (project.status === 'queued' ? 'في قائمة الانتظار' : 'جارٍ تنفيذ مهمة إنتاج')}</strong><span>{Math.max(0, Math.min(100, Number(project.progress) || 0))}%</span></div><div className="render-progress-track"><span style={{ width: `${Math.max(0, Math.min(100, Number(project.progress) || 0))}%` }} /></div><small>هذا التقدم يأتي من حالة المهمة المسجلة في الخادم؛ لا يتم تحريكه شكليًا في الواجهة.</small></div>}
           {project.idea && <div className="detail-section"><h3>الفكرة الأصلية</h3><p>{project.idea}</p></div>}
           {plan.hook && <div className="detail-section"><h3>الافتتاحية المقترحة</h3><p className="hook-quote">«{plan.hook}»</p></div>}
           {Array.isArray(plan.steps) && plan.steps.length > 0 && <div className="detail-section"><h3>تسلسل المشاهد</h3><div className="scene-list">{plan.steps.map((step, index) => <div className="scene-row" key={step.title || index}><span className="scene-index">{String(index + 1).padStart(2, '0')}</span><div><strong>{step.title || step.name}</strong><p>{step.detail || step.description}</p></div><small>{step.seconds ? `${step.seconds}ث` : ''}</small></div>)}</div></div>}
@@ -469,6 +474,25 @@ function App() {
     })
     return () => { alive = false; listener.subscription.unsubscribe() }
   }, [])
+
+  useEffect(() => {
+    if (!supabaseConfigured || !supabase || !user?.id) return undefined
+    const subscription = supabase
+      .channel(`cuto-project-updates-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'video_projects', filter: `user_id=eq.${user.id}` }, payload => {
+        if (payload.eventType === 'DELETE') {
+          setProjects(current => current.filter(project => project.id !== payload.old.id))
+          return
+        }
+        const project = payload.new
+        if (!project?.id) return
+        setProjects(current => current.some(item => item.id === project.id)
+          ? current.map(item => item.id === project.id ? { ...item, ...project } : item)
+          : [project, ...current])
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(subscription) }
+  }, [user?.id])
 
   useEffect(() => {
     if (!supabaseConfigured) {
