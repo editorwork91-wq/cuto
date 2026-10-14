@@ -32,24 +32,47 @@ CUTO يحتاج إلى مشروع Supabase مستقل. لا تربطه بمشر�
 
 إذا تغيّرت أسماء النماذج المتاحة، حدّثها في Secrets بعد التحقق من وثائق Google الرسمية: https://ai.google.dev/gemini-api/docs
 
-## 2) مفاتيح مطلوبة لإكمال إخراج MP4 بمشاهد مولّدة بالذكاء الاصطناعي
+## 2) إعداد Modal لتوليد المقاطع
 
-CUTO يجب أن يولّد المشاهد نفسها بالذكاء الاصطناعي؛ لا نستخدم Pexels أو مكتبات stock footage أو مقاطع جاهزة داخل الفيديو النهائي. **وجود المفتاح لا يعني أن التكامل اكتمل أو أن MP4 أصبح يعمل**؛ يجب تنفيذ موصل Veo ومحرك التجميع، نشرهما، ثم اختبارهُما فعليًا.
+Modal هي منصة تشغيل حوسبة/GPU، وليست موديل فيديو بحد ذاتها. العامل الموجود في المستودع يستخدم موديل Lightricks LTX-2.5-Diffusers على GPU داخل Modal لتوليد مشاهد أصلية لكل مشروع. لا يعتمد هذا المسار على Veo أو ملفات فيديو جاهزة أو مكتبات Stock Footage.
 
-| الاسم | الغرض | مكان الحصول عليه | مكان حفظه |
+المراجع الرسمية:
+- لوحة Modal: https://modal.com/
+- طريقة تشغيل التطبيقات: https://modal.com/docs/cli/latest
+- نموذج الفيديو LTX-2.5: https://huggingface.co/Lightricks/LTX-2.5-Diffusers
+- مثال Modal الرسمي لتوليد الفيديو: https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/text-to-video
+
+### أ) إعداد Modal مرة واحدة
+
+1. سجّل الدخول إلى Modal، وأنشئ Workspace/Environment مناسبًا لمشروع CUTO.
+2. افتح إعدادات مفاتيح الوصول وأنشئ Modal CLI token على جهازك. ثبّت Modal CLI من وثائقه الرسمية ثم نفّذ modal setup. لا تحفظ مفاتيح CLI داخل GitHub.
+3. افتح بطاقة موديل LTX-2.5 على Hugging Face واقرأ شروط الترخيص الحالية، ووافق عليها إن طُلب ذلك قبل الاستخدام التجاري.
+4. في Modal Dashboard افتح Secrets وأنشئ Secret باسم cuto-supabase-worker.
+5. أضف داخل هذا الـ Secret القيم التالية: SUPABASE_URL (رابط مشروع CUTO)، وSUPABASE_SERVICE_ROLE_KEY (مفتاح سرّي خادمي من مشروع CUTO فقط). أضف HF_TOKEN فقط إذا كانت صلاحية تنزيل النموذج تتطلبه. لا تستخدم أي مفتاح من مشروع YOMY.
+6. من مجلد المشروع الذي يحتوي على الملف modal/video_worker.py، انشر العامل باستخدام أمر Modal CLI: modal deploy modal/video_worker.py.
+7. انسخ عنوان endpoint الذي يعرضه النشر لدالة submit_video. احتفظ بالرابط كما هو؛ لا تنشئ endpoint من الواجهة الأمامية.
+
+العامل يشغّل موديل LTX-2.5 على GPU من Modal، ويحفظ المقاطع الناتجة إلى bucket الخاص cuto-assets، ويحدّث صف مهمة الفيديو في Supabase. يحتاج أول تشغيل إلى تنزيل أوزان النموذج، وقد يكون أبطأ من التشغيل بعد تجهيز الكاش.
+
+### ب) حماية endpoint بين Supabase وModal
+
+1. في Modal أنشئ Proxy Auth Token مناسبًا للـ endpoint، واتبع الوثائق: https://modal.com/docs/guide/webhook-proxy-auth
+2. احتفظ بقيمة Token ID التي تبدأ عادةً بـ wk-، وبالقيمة المقابلة Secret التي تبدأ عادةً بـ ws-.
+3. افتح Supabase الخاص بـ CUTO → Edge Functions → Secrets، وأضف هذه الأسماء الثلاثة:
+   - MODAL_VIDEO_ENDPOINT_URL: رابط submit_video الذي حصلت عليه بعد النشر.
+   - MODAL_KEY: قيمة Modal proxy token ID.
+   - MODAL_SECRET: سر الـ proxy token المقابل.
+4. لا تضع هذه القيم في VITE_ variables، أو GitHub source، أو ملفات الواجهة. ولا تشاركها في المحادثة.
+
+## 2.1) مفاتيح Google للصوت والسيناريو
+
+| الاسم | الغرض | المصدر | مكان التخزين |
 |---|---|---|---|
-| `GEMINI_API_KEY` | تخطيط السيناريو والصوت الحاليان، ويمكن استخدامه للوصول إلى Veo عبر Gemini API إذا كان النموذج متاحًا لمشروع Google لديك | https://aistudio.google.com/app/apikey | Supabase → Edge Functions → Secrets |
-| `GEMINI_VIDEO_MODEL` | اسم النموذج وليس مفتاحًا؛ النموذج الموثق وقت كتابة هذه المراجعة هو `veo-3.1-generate-preview`، وقد تختلف الإتاحة والحصص | راجع https://ai.google.dev/gemini-api/docs/veo | إعداد خادم بعد تنفيذ التكامل فقط |
-| `CREATOMATE_API_KEY` | خيار لمحرك تركيب/رندر فقط: يجمع المقاطع المولّدة بالـ AI والصوت والترجمة والعلامة المائية في MP4؛ ليس مصدر مشاهد | https://creatomate.com/ ثم لوحة الحساب وإعدادات API | Secret في الخادم بعد تنفيذ التكامل |
-| `CREATOMATE_TEMPLATE_ID` | اختياري إذا اعتمد تنفيذ الرندر على قالب محدد | من قالب Creatomate بعد إنشائه | إعداد خادم؛ ليست مفتاح API |
+| GEMINI_API_KEY | Gemini لمدير القناة والوصفة والكابتشن، وكذلك Gemini TTS للصوت | https://aistudio.google.com/app/apikey | Supabase → Edge Functions → Secrets |
+| GEMINI_MODEL | اختياري؛ نموذج Gemini الافتراضي لتخطيط القناة والوصفة | وثائق Gemini API | Supabase → Edge Functions → Secrets |
+| GEMINI_TTS_MODEL | اختياري؛ نموذج Gemini TTS المدعوم في مشروع Google | https://ai.google.dev/gemini-api/docs/speech-generation | Supabase → Edge Functions → Secrets |
 
-### التمييز بين Google Flow وVeo
-
-Google Flow هو استوديو صناعة فيديو عبر واجهته، وليس من الصحيح افتراض وجود مفتاح API عام باسم `GOOGLE_FLOW_API_KEY`. لا تشارك كلمة مرور Google ولا تعتمد على أتمتة متصفح غير رسمية. إذا كان المطلوب توليد الفيديو داخل تطبيق CUTO آليًا، فالمسار البرمجي الموثّق هو **Veo عبر Gemini API**، ثم محرك رندر يجمع المقاطع المولّدة. راجع الوثائق الرسمية:
-- Google Flow: https://labs.google/fx/tools/flow
-- Veo API: https://ai.google.dev/gemini-api/docs/veo
-
-Veo يولّد مقاطع قصيرة وتعمل العملية بشكل غير متزامن؛ لذلك قد يحتاج الفيديو الكامل عدة عمليات، كما أن الوقت والتكلفة والحصص تختلف. لا يوجد ضمان صادق بإتمام كل فيديو خلال خمس دقائق قبل تنفيذ اختبارات زمنية فعلية.
+لا يوجد مفتاح مطلوب باسم GOOGLE_FLOW_API_KEY في مسار Modal. Flow منتج Google منفصل عبر واجهته؛ في هذا المسار توليد المقاطع يتم بواسطة LTX-2.5 على Modal. أما التعليق الصوتي فيأتي من Gemini TTS كما طلبت.
 
 ## 3) إعداد الواجهة محليًا
 
@@ -79,17 +102,19 @@ Veo يولّد مقاطع قصيرة وتعمل العملية بشكل غير �
 2. افتح SQL Editor داخل مشروع CUTO ونفّذ migration الأساسية الموجودة في `supabase/migrations/` بالترتيب. راجع أسماء الملفات الحالية في المستودع قبل التنفيذ؛ لا تعِد تنفيذ ترحيل سابق دون داعٍ.
 3. تحقق من تفعيل Email provider في Authentication → Sign In / Providers.
 4. أضف عنوان النشر في Authentication → URL Configuration: Site URL وRedirect URLs. أثناء التطوير أضف عنوان Vite المحلي، ثم أضف نطاق الإنتاج الحقيقي بعد نشر الموقع.
-5. انشر وظائف Edge Functions: `channel-director`, `recipe-director`, `voice-preview`, `generate-narration` واترك التحقق من JWT مفعّلًا.
-6. أضف `GEMINI_API_KEY` في Edge Functions → Secrets ثم اختبر توليد خطة القناة، خطة الوصفة، معاينة الصوت، وحفظ التعليق الصوتي.
-7. تأكد أن `cuto-assets` خاص وأن سياسات RLS تمنع مستخدمًا من رؤية بيانات مستخدم آخر.
+5. طبّق ترحيلات قاعدة البيانات الموجودة في المستودع بالترتيب، بما فيها ترحيل video_render_jobs. هذه الخطوة تنشئ سجل المهام وتضيف سياسات القراءة الخاصة بها.
+6. انشر الوظائف: channel-director وrecipe-director وvoice-preview وgenerate-narration وmodal-render-start وmodal-render-status مع تفعيل JWT verification.
+7. أضف GEMINI_API_KEY وMODAL_VIDEO_ENDPOINT_URL وMODAL_KEY وMODAL_SECRET إلى Edge Functions → Secrets. أضف GEMINI_MODEL وGEMINI_TTS_MODEL فقط إذا أردت تغيير النموذج الافتراضي.
+8. اختبر إنشاء القناة والخطة والصوت أولًا، ثم ابدأ توليد فيديو قصير واختبر متابعة التقدم والتنزيل. تأكد أن cuto-assets خاص وسياسات RLS تمنع المستخدم من قراءة ملفات مستخدم آخر.
 
 لا تستخدم مشروع YOMY الموجود لديك لـ CUTO، ولا تنسخ فيه migrations الخاصة بهذا المشروع.
 
 ## 6) مفاتيح لا تحتاج إلى وضعها في الواجهة
 
 - لا تضع `service_role` أو مفاتيح Supabase السرية في المتصفح. هذه مفاتيح مرتفعة الصلاحية ويمكنها تجاوز RLS.
-- لا تحتاج إلى OpenAI API key في النسخة الحالية؛ الكود الحالي يستخدم Gemini.
-- لا تحتاج إلى مفتاح منفصل لصوت Gemini؛ الصوت يستخدم `GEMINI_API_KEY`.
+- لا تضف مفتاح Modal إلى كود المتصفح؛ الاتصال مع Modal يمر عبر Edge Function موثّقة.
+- لا تحتاج إلى مفتاح منفصل لصوت Gemini؛ الصوت يستخدم GEMINI_API_KEY.
+- لا تضع SUPABASE_SERVICE_ROLE_KEY في الواجهة أو GitHub؛ العامل في Modal يحتاجه فقط داخل Modal Secret خادمي لتحديث المهام وحفظ ملفات المستخدمين.
 - كلمة مرور قاعدة البيانات ليست API key؛ احتفظ بها بشكل آمن، ولا تستخدمها في كود الواجهة.
 
 ## 7) قائمة اختبار قبل اعتبار المهمة مكتملة
@@ -100,10 +125,11 @@ Veo يولّد مقاطع قصيرة وتعمل العملية بشكل غير �
 - [ ] لا يستطيع الحساب إنشاء أكثر من قناتين، حتى مع طلبات متزامنة.
 - [ ] مستخدمان مختلفان لا يستطيع أحدهما قراءة قنوات أو ملفات الآخر.
 - [ ] تعمل وظيفة استراتيجية القناة وخطة الوصفة وتوليد WAV.
-- [ ] يتصل مزود اللقطات المرخّصة ومحرك الرندر بعد تنفيذ التكامل.
+- [ ] ينشر العامل إلى Modal ويستطيع توليد مقطع اختبار من LTX-2.5.
+- [ ] يتم حفظ المقاطع الأصلية في cuto-assets الخاص، ويظل bucket غير عام.
 - [ ] يتم حفظ حالة المهمة في قاعدة البيانات وتحديث شريط التقدم من worker موثوق، وليس من مؤقت في المتصفح.
 - [ ] يظهر رابط MP4 فقط بعد أن يؤكد مزود الرندر اكتماله.
 - [ ] اختبار إخراج 9:16، والصوت، والترجمة، واسم القناة الأبيض ضمن الهوامش الآمنة.
 - [ ] قياس وقت عدة عمليات فعلية قبل الإعلان عن حد خمس دقائق.
 
-**لا تعتبر نسخة CUTO مكتملة بالكامل بمجرد حفظ المفاتيح.** يجب إضافة تكامل مزود الفيديو ومحرك الرندر، نشر الوظائف، تطبيق migrations، ثم تشغيل اختبارات فعلية.
+**لا تعتبر نسخة CUTO مكتملة بالكامل بمجرد حفظ المفاتيح.** يجب تطبيق migrations على مشروع CUTO المقصود، ونشر Edge Functions وعامل Modal، ثم تشغيل اختبارات فعلية من إنشاء الوصفة حتى تنزيل MP4.
