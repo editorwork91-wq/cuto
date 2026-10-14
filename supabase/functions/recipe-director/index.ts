@@ -127,8 +127,6 @@ Rules:
         idea,
         recipe_plan: plan,
         prompt_pack: channel.prompt_pack ?? {},
-        status: "draft",
-        progress: 0,
         stage: "خطة السيناريو والمشاهد جاهزة للمراجعة — لم يبدأ تصيير الفيديو",
       })
       .eq("id", projectId)
