@@ -21,6 +21,10 @@ A premium RTL-first creator workspace for turning a channel brief into a consist
 
 Without Supabase variables, the app opens in preview mode and saves a demo setup locally in this browser only.
 
+## Publish a preview on GitHub Pages
+
+The GitHub token connected to this session cannot enable Pages for the repository. To publish the preview, open **Settings → Pages → Build and deployment**, select **GitHub Actions** as the source, then run **Actions → Deploy CUTO preview to GitHub Pages → Run workflow**. The Pages workflow is manual so it will not repeatedly fail while Pages remains disabled. Without repository variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`, it publishes the local-preview experience; configure both repository variables only after a separate CUTO Supabase project is ready.
+
 ## Supabase setup
 
 1. Apply `supabase/migrations/20261014000000_cuto_core.sql` in the Supabase SQL Editor (or with the Supabase CLI).
