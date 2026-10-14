@@ -57,15 +57,22 @@ async function makeSpeech(text: string, voiceGender: string, language: string) {
         ? "Speak naturally in Turkish."
         : "Speak naturally in English.";
   const genderStyle = voiceGender === "male" ? "a natural adult male narrator" : "a natural adult female narrator";
-  const prompt = `Read the exact script below and do not add or omit words. Use ${genderStyle}. ${dialect} Sound polished, friendly, warm and conversational, suitable for a professional short-form cooking video. Keep a moderate pace, clear diction and natural pauses. Do not announce these instructions.\n\nSCRIPT:\n${text}`;
+  const style = `${genderStyle}. ${dialect} Read exactly the supplied script in a polished, friendly, warm and conversational tone suitable for a professional short-form cooking video. Keep a moderate pace, clear diction and natural pauses.`;
 
   const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
     headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
-      input: prompt,
-      response_format: { type: "audio" },
+      input: [{
+        type: "user_input",
+        content: [{
+          type: "text",
+          text,
+          annotations: [{ type: "speech_metadata", style }],
+        }],
+      }],
+      response_format: { type: "audio", mime_type: "audio/wav" },
       generation_config: { speech_config: [{ voice: voiceName }] },
     }),
   });
@@ -74,10 +81,18 @@ async function makeSpeech(text: string, voiceGender: string, language: string) {
     throw new Error("speech_provider_failed");
   }
   const payload = await response.json();
-  const audioData = payload?.output_audio?.data;
+  const audioData = payload?.output_audio?.data
+    ?? payload?.steps?.filter((step: { type?: string }) => step.type === "model_output")
+      ?.flatMap((step: { content?: { type?: string; data?: string }[] }) => step.content ?? [])
+      ?.filter((part: { type?: string }) => part.type === "audio")
+      ?.at(-1)?.data;
   if (typeof audioData !== "string" || !audioData.length) throw new Error("empty_speech_response");
-  const pcm = Uint8Array.from(atob(audioData), char => char.charCodeAt(0));
-  return pcmToWav(pcm);
+  const audioBytes = Uint8Array.from(atob(audioData), char => char.charCodeAt(0));
+  // Non-streaming audio/wav returns a WAV container; raw PCM is used as a fallback.
+  if (audioBytes.length >= 12 &&
+      String.fromCharCode(...audioBytes.subarray(0, 4)) === "RIFF" &&
+      String.fromCharCode(...audioBytes.subarray(8, 12)) === "WAVE") return audioBytes;
+  return pcmToWav(audioBytes);
 }
 
 Deno.serve(async (request: Request) => {
