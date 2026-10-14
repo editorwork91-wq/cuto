@@ -296,15 +296,15 @@ Deno.serve(async (request: Request) => {
         .eq("id", projectId).eq("user_id", user.id);
       const finalResponse = await fetch(renderPayload.url);
       if (!finalResponse.ok) return reply(202, { status: "uploading", progress: 94, stage: "يُعاد تنزيل MP4 النهائي قبل حفظه", poll_again: true });
-      const maxOutputBytes = 262144000;
+      const maxOutputBytes = 52428800;
       const lengthHeader = Number(finalResponse.headers.get("content-length") || 0);
       if (lengthHeader > maxOutputBytes) {
-        await markFailed(job.id, projectId, user.id, "Final MP4 exceeded 250 MB.");
+        await markFailed(job.id, projectId, user.id, "Final MP4 exceeded the configured 50 MB private Storage limit.");
         return reply(413, { error: "final_video_too_large" });
       }
       const bytes = new Uint8Array(await finalResponse.arrayBuffer());
       if (!bytes.length || bytes.length > maxOutputBytes) {
-        await markFailed(job.id, projectId, user.id, "Final MP4 was empty or exceeded 250 MB.");
+        await markFailed(job.id, projectId, user.id, "Final MP4 was empty or exceeded the configured 50 MB private Storage limit.");
         return reply(413, { error: "final_video_size_invalid" });
       }
       const outputPath = user.id + "/" + channel.id + "/" + projectId + "/final.mp4";
