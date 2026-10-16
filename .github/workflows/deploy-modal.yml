@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -38,6 +40,9 @@ jobs:
             exit 1
           fi
           python -m py_compile modal/video_worker.py
+
+      - name: Verify Modal account access
+        run: modal token info
 
       - name: Deploy serverless GPU worker
         run: modal deploy modal/video_worker.py
