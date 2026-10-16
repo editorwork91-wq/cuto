@@ -47,9 +47,9 @@ Modal هي منصة تشغيل حوسبة/GPU، وليست موديل فيديو
 
 1. سجّل الدخول إلى Modal، وأنشئ Workspace/Environment مناسبًا لمشروع CUTO.
 2. لن تحتاج إلى تشغيل سيرفر على حاسوبك. يمكن نشر العامل من GitHub Actions بعد دمج هذا الفرع في main. من Modal أنشئ API token مخصصًا للنشر، ثم في GitHub افتح Settings → Secrets and variables → Actions وأنشئ Repository secrets باسم MODAL_TOKEN_ID وMODAL_TOKEN_SECRET. هاتان القيمتان خاصتان بنشر التطبيق، وليستا Modal Proxy Token اللذين سيُستخدمان لاحقًا للاتصال من Supabase.
-3. افتح بطاقة موديل LTX-2.5 على Hugging Face واقرأ شروط الترخيص الحالية، ووافق عليها إن طُلب ذلك قبل الاستخدام التجاري.
+3. افتح https://huggingface.co/Lightricks/LTX-2.5-Diffusers، واطلب/اقبل الوصول إلى الموديل gated، واقرأ الترخيص الحالي ووافق عليه قبل الاستخدام. أنشئ Read Token في Hugging Face، وستضيفه في الخطوة التالية.
 4. في Modal Dashboard افتح Secrets وأنشئ Secret باسم cuto-supabase-worker.
-5. أضف داخل هذا الـ Secret القيم التالية: SUPABASE_URL (رابط مشروع CUTO)، وSUPABASE_SECRET_KEY (مفتاح sb_secret_ حديث من مشروع CUTO فقط؛ المفضّل). أضف HF_TOKEN فقط إذا كانت صلاحية تنزيل النموذج تتطلبه. لا تستخدم أي مفتاح من مشروع YOMY.
+5. أضف داخل هذا الـ Secret القيم التالية: SUPABASE_URL (رابط مشروع CUTO)، وSUPABASE_SECRET_KEY (مفتاح sb_secret_ حديث من مشروع CUTO فقط؛ المفضّل). موديل LTX-2.5 مصنّف gated؛ وافق على الترخيص وأنشئ Hugging Face Read Token باسم HF_TOKEN وأضفه داخل Modal Secret حتى يستطيع العامل تنزيل الأوزان. لا تستخدم أي مفتاح من مشروع YOMY.
 6. بعد دمج الفرع في main وإضافة MODAL_TOKEN_ID وMODAL_TOKEN_SECRET إلى GitHub Secrets، افتح GitHub → Actions → Deploy CUTO Modal Video Worker → Run workflow. سيشغّل GitHub مهمة النشر بدلًا من احتياجك إلى سيرفر أو تثبيت الأدوات محليًا. يجب أن يكون Secret المسمى cuto-supabase-worker موجودًا في Modal قبل بدء النشر.
 7. انسخ عنوان endpoint الذي يعرضه النشر لدالة submit_video. احتفظ بالرابط كما هو؛ لا تنشئ endpoint من الواجهة الأمامية.
 
