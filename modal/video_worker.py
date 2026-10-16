@@ -13,7 +13,9 @@ from pydantic import BaseModel, Field
 APP_NAME = "cuto-modal-video-worker"
 MODEL_ID = "Lightricks/LTX-2.5-Diffusers"
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SUPABASE_SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY", "")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+SUPABASE_ADMIN_KEY = SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY
 BUCKET = "cuto-assets"
 
 app = modal.App(APP_NAME)
@@ -52,12 +54,13 @@ class SubmitVideoRequest(BaseModel):
 
 
 def supabase_headers(extra=None):
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        raise RuntimeError("Modal secret cuto-supabase-worker needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.")
-    result = {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Authorization": "Bearer " + SUPABASE_SERVICE_ROLE_KEY,
-    }
+    if not SUPABASE_URL or not SUPABASE_ADMIN_KEY:
+        raise RuntimeError("Modal secret cuto-supabase-worker needs SUPABASE_URL and SUPABASE_SECRET_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY).")
+    # Modern Supabase sb_secret_* API keys are sent only through apikey. The legacy
+    # service_role key is a JWT and can safely also be used as a Bearer token.
+    result = {"apikey": SUPABASE_ADMIN_KEY}
+    if not SUPABASE_ADMIN_KEY.startswith("sb_secret_"):
+        result["Authorization"] = "Bearer " + SUPABASE_ADMIN_KEY
     if extra:
         result.update(extra)
     return result
