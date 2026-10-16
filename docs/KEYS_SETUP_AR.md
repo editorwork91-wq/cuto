@@ -49,7 +49,7 @@ Modal هي منصة تشغيل حوسبة/GPU، وليست موديل فيديو
 2. لن تحتاج إلى تشغيل سيرفر على حاسوبك. يمكن نشر العامل من GitHub Actions بعد دمج هذا الفرع في main. من Modal أنشئ API token مخصصًا للنشر، ثم في GitHub افتح Settings → Secrets and variables → Actions وأنشئ Repository secrets باسم MODAL_TOKEN_ID وMODAL_TOKEN_SECRET. هاتان القيمتان خاصتان بنشر التطبيق، وليستا Modal Proxy Token اللذين سيُستخدمان لاحقًا للاتصال من Supabase.
 3. افتح بطاقة موديل LTX-2.5 على Hugging Face واقرأ شروط الترخيص الحالية، ووافق عليها إن طُلب ذلك قبل الاستخدام التجاري.
 4. في Modal Dashboard افتح Secrets وأنشئ Secret باسم cuto-supabase-worker.
-5. أضف داخل هذا الـ Secret القيم التالية: SUPABASE_URL (رابط مشروع CUTO)، وSUPABASE_SERVICE_ROLE_KEY (مفتاح سرّي خادمي من مشروع CUTO فقط). أضف HF_TOKEN فقط إذا كانت صلاحية تنزيل النموذج تتطلبه. لا تستخدم أي مفتاح من مشروع YOMY.
+5. أضف داخل هذا الـ Secret القيم التالية: SUPABASE_URL (رابط مشروع CUTO)، وSUPABASE_SECRET_KEY (مفتاح sb_secret_ حديث من مشروع CUTO فقط؛ المفضّل). أضف HF_TOKEN فقط إذا كانت صلاحية تنزيل النموذج تتطلبه. لا تستخدم أي مفتاح من مشروع YOMY.
 6. بعد دمج الفرع في main وإضافة MODAL_TOKEN_ID وMODAL_TOKEN_SECRET إلى GitHub Secrets، افتح GitHub → Actions → Deploy CUTO Modal Video Worker → Run workflow. سيشغّل GitHub مهمة النشر بدلًا من احتياجك إلى سيرفر أو تثبيت الأدوات محليًا. يجب أن يكون Secret المسمى cuto-supabase-worker موجودًا في Modal قبل بدء النشر.
 7. انسخ عنوان endpoint الذي يعرضه النشر لدالة submit_video. احتفظ بالرابط كما هو؛ لا تنشئ endpoint من الواجهة الأمامية.
 
@@ -115,7 +115,7 @@ Modal هي منصة تشغيل حوسبة/GPU، وليست موديل فيديو
 - لا تضع `service_role` أو مفاتيح Supabase السرية في المتصفح. هذه مفاتيح مرتفعة الصلاحية ويمكنها تجاوز RLS.
 - لا تضف مفتاح Modal إلى كود المتصفح؛ الاتصال مع Modal يمر عبر Edge Function موثّقة.
 - لا تحتاج إلى مفتاح منفصل لصوت Gemini؛ الصوت يستخدم GEMINI_API_KEY.
-- لا تضع SUPABASE_SERVICE_ROLE_KEY في الواجهة أو GitHub؛ العامل في Modal يحتاجه فقط داخل Modal Secret خادمي لتحديث المهام وحفظ ملفات المستخدمين.
+- لا تضع SUPABASE_SECRET_KEY في الواجهة أو GitHub؛ العامل في Modal يحتاجه فقط داخل Modal Secret خادمي لتحديث المهام وحفظ ملفات المستخدمين.
 - كلمة مرور قاعدة البيانات ليست API key؛ احتفظ بها بشكل آمن، ولا تستخدمها في كود الواجهة.
 
 ## 7) قائمة اختبار قبل اعتبار المهمة مكتملة
