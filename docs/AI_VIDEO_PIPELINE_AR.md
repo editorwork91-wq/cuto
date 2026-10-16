@@ -58,8 +58,8 @@
 ## إعداد Modal
 
 1. أنشئ Modal Workspace وصادق على CLI، ثم انشر من جذر المستودع باستخدام: modal deploy modal/video_worker.py.
-2. وافق على شروط ترخيص LTX-2.5 الحالية على Hugging Face قبل الاستخدام، خصوصًا إذا كان التطبيق سيُستخدم تجاريًا.
-3. أنشئ Modal Secret باسم cuto-supabase-worker، وضع داخله SUPABASE_URL وSUPABASE_SECRET_KEY (sb_secret_) لمشروع CUTO، وHF_TOKEN فقط إذا تطلب تنزيل الموديل إذنًا.
+2. LTX-2.5 موديل gated على Hugging Face: اطلب/اقبل الوصول، اقرأ الترخيص الحالي ووافق عليه، وأنشئ Read Token.
+3. أنشئ Modal Secret باسم cuto-supabase-worker، وضع داخله SUPABASE_URL وSUPABASE_SECRET_KEY (sb_secret_) لمشروع CUTO وHF_TOKEN؛ دون HF_TOKEN بعد قبول الوصول، لن يستطيع العامل تنزيل أوزان LTX-2.5.
 4. فعّل Proxy Auth للـ endpoint وأنشئ Proxy Token.
 5. ضع عنوان endpoint وقيمتي token داخل Supabase Edge Function Secrets: MODAL_VIDEO_ENDPOINT_URL وMODAL_KEY وMODAL_SECRET.
 6. لا تضع مفاتيح Modal أو المفتاح الخادمي لـ Supabase في متغيرات VITE_ أو GitHub source أو المتصفح.
