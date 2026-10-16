@@ -1,4 +1,4 @@
-import json
+import hashlib
 import os
 import subprocess
 import tempfile
@@ -126,7 +126,7 @@ def get_pipeline():
         return PIPE
 
     import torch
-    from diffusers import LTX2Pipeline
+    from diffusers.pipelines.ltx2 import LTX2Pipeline
     from diffusers.pipelines.ltx2.utils import DISTILLED_SIGMA_VALUES
 
     pipe = LTX2Pipeline.from_pretrained(MODEL_ID, dtype=torch.bfloat16)
@@ -345,7 +345,7 @@ def render_project(job_id: str, project_id: str, user_id: str):
                 "recipe sequence. Scene description: " + prompt[:3500]
                 + ". Continuity notes: " + str(scene.get("continuity_notes") or "")[:800]
             )
-            seed = int.from_bytes((project_id + ":" + str(index)).encode("utf-8")[:8].ljust(8, b"0"), "big") % (2**31)
+            seed = int.from_bytes(hashlib.sha256(f"{project_id}:{index}".encode("utf-8")).digest()[:4], "big") % (2**31)
             output = pipe(
                 prompt=prompt,
                 width=576,
@@ -450,7 +450,7 @@ def render_project(job_id: str, project_id: str, user_id: str):
         shutil.rmtree(tmp_root, ignore_errors=True)
 
 
-@app.function(image=modal.Image.debian_slim(python_version="3.12").uv_pip_install("pydantic"), timeout=30)
+@app.function(image=modal.Image.debian_slim(python_version="3.12").uv_pip_install("fastapi[standard]", "pydantic"), timeout=30)
 @modal.fastapi_endpoint(method="POST", requires_proxy_auth=True)
 def submit_video(payload: SubmitVideoRequest):
     # The Supabase Edge Function verifies the user and project before calling this endpoint.
