@@ -450,7 +450,16 @@ def render_project(job_id: str, project_id: str, user_id: str):
         shutil.rmtree(tmp_root, ignore_errors=True)
 
 
-@app.function(image=modal.Image.debian_slim(python_version="3.12").uv_pip_install("fastapi[standard]", "pydantic"), timeout=30)
+endpoint_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install("fastapi[standard]", "pydantic")
+
+
+@app.function(image=endpoint_image, timeout=30)
+@modal.fastapi_endpoint(method="GET", requires_proxy_auth=True)
+def health_check():
+    return {"status": "ok", "app": APP_NAME, "video_model": MODEL_ID}
+
+
+@app.function(image=endpoint_image, timeout=30)
 @modal.fastapi_endpoint(method="POST", requires_proxy_auth=True)
 def submit_video(payload: SubmitVideoRequest):
     # The Supabase Edge Function verifies the user and project before calling this endpoint.
