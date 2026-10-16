@@ -35,11 +35,11 @@ The GitHub token connected to this session cannot enable Pages for the repositor
 1. Apply all migrations in `supabase/migrations/` in filename order to the dedicated CUTO Supabase project. Do not apply them to YOMY.
 2. Deploy `channel-director`, `recipe-director`, `voice-preview`, `generate-narration`, `modal-render-start`, and `modal-render-status`. Keep JWT verification enabled.
 3. Set `GEMINI_API_KEY` in Supabase Dashboard → Edge Functions → Secrets. Optionally set `GEMINI_MODEL` and `GEMINI_TTS_MODEL` to override defaults. Never put these secrets in the browser or commit their real values.
-4. In Modal, create a Secret named `cuto-supabase-worker` with `SUPABASE_URL` and the server-only `SUPABASE_SECRET_KEY` for the CUTO project. Add `HF_TOKEN` only if access to the selected model requires it. Review LTX-2.5's current license terms.
+4. Before deploying, accept LTX-2.5's gated license on Hugging Face and create a read token (`HF_TOKEN`). In Modal, create a Secret named `cuto-supabase-worker` with `SUPABASE_URL`, the server-only `SUPABASE_SECRET_KEY` for CUTO, and `HF_TOKEN`.
 5. In GitHub repository Settings → Secrets and variables → Actions, add `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` using a Modal API token (deployment credentials, typically `ak-` / `as-`; these are not proxy tokens).
 6. After this branch is merged into `main`, run Actions → Deploy CUTO Modal Video Worker → Run workflow. This uses GitHub's hosted runner to deploy the Modal GPU worker; you do not need an always-on server or local Python installation.
 7. In Modal, create a separate Proxy Auth Token for the deployed `submit_video` endpoint. In Supabase Edge Function Secrets, set `MODAL_VIDEO_ENDPOINT_URL`, `MODAL_KEY`, and `MODAL_SECRET` from the deployed endpoint and proxy token (`wk-` / `ws-`). Keep all these out of `VITE_` variables and frontend files.
-7. Ensure Email auth is enabled and configure your site URL / redirect URLs. Run a full test from recipe planning through a private MP4 download before advertising production readiness.
+9. Ensure Email auth is enabled and configure your site URL / redirect URLs. Run a full test from recipe planning through a private MP4 download before advertising production readiness.
 8. The narration function generates a WAV and stores it in private `cuto-assets`; the final Modal worker generates original video scenes with LTX-2.5 and composes them using FFmpeg. Voice gender is a preference/instruction to TTS, not a guarantee of a specific speaker identity or dialect quality.
 
 The browser uses a publishable key only. RLS policies scope rows to `auth.uid()`; channel count is enforced by Postgres as a second line of defense.
