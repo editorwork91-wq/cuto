@@ -126,7 +126,7 @@ def get_pipeline():
         return PIPE
 
     import torch
-    from diffusers.pipelines.ltx2 import LTX2Pipeline
+    from diffusers import LTX2Pipeline
     from diffusers.pipelines.ltx2.utils import DISTILLED_SIGMA_VALUES
 
     pipe = LTX2Pipeline.from_pretrained(MODEL_ID, dtype=torch.bfloat16)
@@ -253,6 +253,7 @@ def render_final_video(scene_paths, voice_path, output_path, subtitle_path, wate
 @app.function(
     image=video_image,
     gpu="H100",
+    max_containers=1,
     timeout=1800,
     scaledown_window=120,
     volumes={MODEL_CACHE: model_volume},
