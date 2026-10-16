@@ -39,8 +39,9 @@ The GitHub token connected to this session cannot enable Pages for the repositor
 5. In GitHub repository Settings → Secrets and variables → Actions, add `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` using a Modal API token (deployment credentials, typically `ak-` / `as-`; these are not proxy tokens).
 6. After this branch is merged into `main`, run Actions → Deploy CUTO Modal Video Worker → Run workflow. This uses GitHub's hosted runner to deploy the Modal GPU worker; you do not need an always-on server or local Python installation.
 7. In Modal, create a separate Proxy Auth Token for the deployed `submit_video` endpoint. In Supabase Edge Function Secrets, set `MODAL_VIDEO_ENDPOINT_URL`, `MODAL_KEY`, and `MODAL_SECRET` from the deployed endpoint and proxy token (`wk-` / `ws-`). Keep all these out of `VITE_` variables and frontend files.
-9. Ensure Email auth is enabled and configure your site URL / redirect URLs. Run a full test from recipe planning through a private MP4 download before advertising production readiness.
-8. The narration function generates a WAV and stores it in private `cuto-assets`; the final Modal worker generates original video scenes with LTX-2.5 and composes them using FFmpeg. Voice gender is a preference/instruction to TTS, not a guarantee of a specific speaker identity or dialect quality.
+8. Ensure Email auth is enabled and configure your site URL / redirect URLs. Run a full test from recipe planning through a private MP4 download before advertising production readiness.
+
+The narration function generates a WAV and stores it in private `cuto-assets`; the final Modal worker generates original video scenes with LTX-2.5 and composes them using FFmpeg. Voice gender is a preference/instruction to TTS, not a guarantee of a specific speaker identity or dialect quality.
 
 The browser uses a publishable key only. RLS policies scope rows to `auth.uid()`; channel count is enforced by Postgres as a second line of defense.
 
