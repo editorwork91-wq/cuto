@@ -6,7 +6,7 @@
 
 CUTO يحتاج إلى مشروع Supabase مستقل. لا تربطه بمشروع YOMY أو بقاعدة بيانات أي تطبيق آخر. أنشئ مشروعًا جديدًا باسم `cuto` من https://supabase.com/dashboard.
 
-المشروع الحالي يتضمن تسجيل البريد الإلكتروني، إعداد القناة، توليد استراتيجية القناة وخطة الوصفة، ومعاينة/حفظ التعليق الصوتي عند نشر الوظائف وضبط المفاتيح. **إنتاج MP4 النهائي ليس مكتملًا في المستودع بعد**؛ ولتنفيذه نحتاج إلى ربط مزود لقطات مرخّصة ومحرك تصيير/رندر، ثم اختبار طابور المهام والتقدم الحقيقي.
+المعمارية المستهدفة: Gemini يدير الخطة والوصفة والكابتشن، وGemini TTS ينشئ التعليق الصوتي، وModal يشغّل موديل LTX-2.5 لتوليد المشاهد، وFFmpeg يجمع الفيديو، بينما تحفظ Supabase المهام والملفات الخاصة. يلزم نشر العامل وضبط الأسرار واختبار فيديو فعلي قبل اعتبار المسار جاهزًا للإنتاج.
 
 ## 1) القيم المطلوبة للميزات الحالية
 
@@ -38,6 +38,7 @@ Modal هي منصة تشغيل حوسبة/GPU، وليست موديل فيديو
 
 المراجع الرسمية:
 - لوحة Modal: https://modal.com/
+- مفاتيح النشر: https://modal.com/docs/cli/latest/workspace
 - طريقة تشغيل التطبيقات: https://modal.com/docs/cli/latest
 - نموذج الفيديو LTX-2.5: https://huggingface.co/Lightricks/LTX-2.5-Diffusers
 - مثال Modal الرسمي لتوليد الفيديو: https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/text-to-video
@@ -45,11 +46,11 @@ Modal هي منصة تشغيل حوسبة/GPU، وليست موديل فيديو
 ### أ) إعداد Modal مرة واحدة
 
 1. سجّل الدخول إلى Modal، وأنشئ Workspace/Environment مناسبًا لمشروع CUTO.
-2. افتح إعدادات مفاتيح الوصول وأنشئ Modal CLI token على جهازك. ثبّت Modal CLI من وثائقه الرسمية ثم نفّذ modal setup. لا تحفظ مفاتيح CLI داخل GitHub.
+2. لن تحتاج إلى تشغيل سيرفر على حاسوبك. يمكن نشر العامل من GitHub Actions بعد دمج هذا الفرع في main. من Modal أنشئ API token مخصصًا للنشر، ثم في GitHub افتح Settings → Secrets and variables → Actions وأنشئ Repository secrets باسم MODAL_TOKEN_ID وMODAL_TOKEN_SECRET. هاتان القيمتان خاصتان بنشر التطبيق، وليستا Modal Proxy Token اللذين سيُستخدمان لاحقًا للاتصال من Supabase.
 3. افتح بطاقة موديل LTX-2.5 على Hugging Face واقرأ شروط الترخيص الحالية، ووافق عليها إن طُلب ذلك قبل الاستخدام التجاري.
 4. في Modal Dashboard افتح Secrets وأنشئ Secret باسم cuto-supabase-worker.
 5. أضف داخل هذا الـ Secret القيم التالية: SUPABASE_URL (رابط مشروع CUTO)، وSUPABASE_SERVICE_ROLE_KEY (مفتاح سرّي خادمي من مشروع CUTO فقط). أضف HF_TOKEN فقط إذا كانت صلاحية تنزيل النموذج تتطلبه. لا تستخدم أي مفتاح من مشروع YOMY.
-6. من مجلد المشروع الذي يحتوي على الملف modal/video_worker.py، انشر العامل باستخدام أمر Modal CLI: modal deploy modal/video_worker.py.
+6. بعد دمج الفرع في main وإضافة MODAL_TOKEN_ID وMODAL_TOKEN_SECRET إلى GitHub Secrets، افتح GitHub → Actions → Deploy CUTO Modal Video Worker → Run workflow. سيشغّل GitHub مهمة النشر بدلًا من احتياجك إلى سيرفر أو تثبيت الأدوات محليًا. يجب أن يكون Secret المسمى cuto-supabase-worker موجودًا في Modal قبل بدء النشر.
 7. انسخ عنوان endpoint الذي يعرضه النشر لدالة submit_video. احتفظ بالرابط كما هو؛ لا تنشئ endpoint من الواجهة الأمامية.
 
 العامل يشغّل موديل LTX-2.5 على GPU من Modal، ويحفظ المقاطع الناتجة إلى bucket الخاص cuto-assets، ويحدّث صف مهمة الفيديو في Supabase. يحتاج أول تشغيل إلى تنزيل أوزان النموذج، وقد يكون أبطأ من التشغيل بعد تجهيز الكاش.
