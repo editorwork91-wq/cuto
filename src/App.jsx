@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, CircleHelp, Clapperboard, Clock3, CookingPot,
   Download, ExternalLink, FileText, Film, FolderKanban, Globe2, LayoutDashboard,
   LoaderCircle, LogOut, Menu, Mic2, MoreHorizontal, Plus, Search, Settings2,
-  ShieldCheck, SlidersHorizontal, Sparkles, Sprout, UserRound, WandSparkles,
+  ShieldCheck, SlidersHorizontal, Sparkles, Sprout, UserRound, WandSparkles, Copy, Hash,
   X, Play, LockKeyhole, Video, Volume2, Layers3
 } from 'lucide-react'
 import { supabase, supabaseConfigured } from './lib/supabase.js'
@@ -58,12 +58,24 @@ function buildPreviewPlan(idea, channel, duration = 45) {
       { title: 'اللقطة النهائية', detail: 'لقطة تقديم جذابة، ثم اسم القناة واسم المستخدم في أسفل الفيديو.', seconds: 6 },
     ],
     shot_list: [
-      'لقطة افتتاحية عمودية للطبق النهائي',
-      'لقطة علوية للمكونات مرتبة على سطح نظيف',
-      'لقطات قريبة لخطوات التحضير الفعلية',
-      'لقطة نهائية مع إضاءة ناعمة وهوية القناة',
+      'لقطة افتتاحية عمودية مولّدة بالذكاء الاصطناعي للطبق النهائي',
+      'لقطة علوية مولّدة بالذكاء الاصطناعي للمكونات مرتبة على سطح نظيف',
+      'لقطات قريبة مولّدة بالذكاء الاصطناعي لخطوات التحضير',
+      'لقطة نهائية مولّدة بالذكاء الاصطناعي مع هوية القناة',
     ],
-    note: 'معاينة توضيحية محلية فقط؛ لم يتم استدعاء نموذج ذكاء اصطناعي أو إنشاء ملف MP4.',
+    publishing_pack: {
+      primary_caption: `وصفة ${recipe || 'جديدة'} بخطوات واضحة ومن غير تعقيد 🍽️ احفظوا الفيديو وجرّبوها، وقولوا لنا رأيكم!`,
+      platforms: [
+        { id: 'tiktok', name: 'TikTok', caption: `مين هيجرّب ${recipe || 'الوصفة'}؟ 👀🍽️ شوفوا الخطوات للآخر واحفظوا الفيديو علشان ترجعوله وقت التحضير.`, cta: 'اكتبوا في التعليقات تحبوا الوصفة الجاية تكون إيه.', hashtags: ['#طبخ', '#وصفات', '#وصفات_سهلة', '#CUTO'] },
+        { id: 'instagram_reels', name: 'Instagram Reels', caption: `${recipe || 'وصفة جديدة'} بطريقة بسيطة وخطوات واضحة ✨🍽️ احفظوا الريل علشان تجربوها بعدين.`, cta: 'اعملوا منشن للشخص اللي هيحب يجربها معاكم.', hashtags: ['#وصفات', '#طبخ_بيتي', '#ريلز', '#CUTO'] },
+        { id: 'youtube_shorts', name: 'YouTube Shorts', title: `${(recipe || 'وصفة سهلة').slice(0, 76)} | وصفة سهلة #Shorts`, caption: `في الفيديو ده بنحضّر ${recipe || 'وصفة جديدة'} بخطوات واضحة. راجعوا المقادير المكتوبة داخل الفيديو قبل البدء، واشتركوا لمزيد من الوصفات.`, cta: 'اكتبوا اسم الوصفة اللي تحبوا تشوفوها بعد كده.', hashtags: ['#Shorts', '#وصفات', '#طبخ'] },
+        { id: 'facebook_reels', name: 'Facebook Reels', caption: `جربوا ${recipe || 'الوصفة'} دي وشاركونا النتيجة 🍽️ خطوات بسيطة ومناسبة إنكم ترجعوا لها وقت التحضير.`, cta: 'شاركونا نصائحكم أو تعديلاتكم في التعليقات.', hashtags: ['#وصفات', '#مطبخ', '#طبخ_بيتي', '#CUTO'] },
+      ],
+      pinned_comment: 'إيه الوصفة اللي تحبوا نشوفها في الفيديو الجاي؟ اكتبوا اقتراحكم 👇',
+      thumbnail_text: (recipe || 'وصفة سهلة').slice(0, 28),
+      seo_keywords: [recipe || 'وصفة جديدة', 'وصفات سهلة', 'طبخ منزلي'],
+    },
+    note: 'معاينة توضيحية محلية فقط؛ لم يتم استدعاء نموذج ذكاء اصطناعي أو إنشاء ملف MP4. الكابتشن المعروض مثال مبدئي.',
   }
 }
 
@@ -368,9 +380,11 @@ function ProjectCard({ project, onOpen }) {
   )
 }
 
-function ProjectModal({ project, onClose, onDownload, onGenerateNarration, narrationLoading }) {
+function ProjectModal({ project, onClose, onDownload, onGenerateNarration, narrationLoading, onCopyCaption, onGenerateVideo, videoGenerationLoading }) {
   if (!project) return null
   const plan = project.recipe_plan || {}
+  const publishingPack = plan.publishing_pack || {}
+  const platformCaptions = Array.isArray(publishingPack.platforms) ? publishingPack.platforms : []
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={e => e.target === e.currentTarget && onClose()}>
       <section className="project-modal glass-panel" role="dialog" aria-modal="true" aria-labelledby="project-modal-title">
@@ -383,6 +397,19 @@ function ProjectModal({ project, onClose, onDownload, onGenerateNarration, narra
           {plan.hook && <div className="detail-section"><h3>الافتتاحية المقترحة</h3><p className="hook-quote">«{plan.hook}»</p></div>}
           {Array.isArray(plan.steps) && plan.steps.length > 0 && <div className="detail-section"><h3>تسلسل المشاهد</h3><div className="scene-list">{plan.steps.map((step, index) => <div className="scene-row" key={step.title || index}><span className="scene-index">{String(index + 1).padStart(2, '0')}</span><div><strong>{step.title || step.name}</strong><p>{step.detail || step.description}</p></div><small>{step.seconds ? `${step.seconds}ث` : ''}</small></div>)}</div></div>}
           {project.prompt_pack && <div className="detail-section"><h3>برومبتات القناة</h3>{Object.entries(project.prompt_pack).map(([key, value]) => <div className="prompt-line" key={key}><strong>{({identity:'الهوية',script:'السيناريو',voice:'الصوت',visuals:'المشاهد',edit:'المونتاج'})[key] || key}</strong><p>{value}</p></div>)}</div>}
+          {(publishingPack.primary_caption || platformCaptions.length > 0) && <div className="detail-section caption-package">
+            <div className="caption-package-heading"><div><h3>كابتشن النشر — جاهز لكل منصة</h3><p>نسخ مخصص للمنصة، مع دعوة للتفاعل وهاشتاجات مرتبطة بالوصفة، باللغة واللهجة المحددتين للقناة.</p></div><span className="caption-package-mark"><Hash size={15} /> SOCIAL</span></div>
+            {publishingPack.primary_caption && <div className="caption-primary"><strong>الكابتشن الأساسي</strong><p>{publishingPack.primary_caption}</p><button type="button" className="subtle-button" onClick={() => onCopyCaption?.({ id: 'primary', name: 'الكابتشن الأساسي', caption: publishingPack.primary_caption, hashtags: [] })}><Copy size={14} /> نسخ الكابتشن الأساسي</button></div>}
+            <div className="caption-platform-grid">{platformCaptions.map(item => <article className="caption-platform-card" key={item.id || item.name}>
+              <div className="caption-platform-header"><strong>{item.name || item.platform}</strong><button type="button" className="subtle-button" onClick={() => onCopyCaption?.(item)}><Copy size={13} /> نسخ</button></div>
+              {item.title && <p className="caption-platform-title">{item.title}</p>}
+              {item.caption && <p className="caption-platform-text">{item.caption}</p>}
+              {item.cta && <p className="caption-platform-cta">{item.cta}</p>}
+              {Array.isArray(item.hashtags) && item.hashtags.length > 0 && <p className="caption-hashtags">{item.hashtags.join(' ')}</p>}
+            </article>)}</div>
+            {publishingPack.pinned_comment && <div className="caption-pinned-comment"><strong>تعليق مقترح للتثبيت</strong><p>{publishingPack.pinned_comment}</p><button type="button" className="subtle-button" onClick={() => onCopyCaption?.({ id: 'pinned', name: 'التعليق المثبت', caption: publishingPack.pinned_comment, hashtags: [] })}><Copy size={13} /> نسخ التعليق</button></div>}
+            {Array.isArray(publishingPack.seo_keywords) && publishingPack.seo_keywords.length > 0 && <div className="caption-keywords"><strong>كلمات مفتاحية مقترحة</strong><p>{publishingPack.seo_keywords.join(' · ')}</p></div>}
+          </div>}
           {plan.voice_script && <div className="narration-panel">
             <div className="narration-copy"><span className="narration-icon"><AudioLines size={17} /></span><div><strong>التعليق الصوتي</strong><p>{project.voice_audio_url ? 'ملف الصوت متاح للاستماع عبر رابط خاص مؤقت.' : project.voice_storage_path ? 'تم تخزين التعليق الصوتي بشكل خاص. يمكنك استرجاع رابط للاستماع.' : 'ولّد التعليق باللهجة والاختيار الصوتي الافتراضي للقناة.'}</p></div></div>
             <button className="secondary-button narration-generate" onClick={() => onGenerateNarration?.(project)} disabled={narrationLoading}>
@@ -391,7 +418,14 @@ function ProjectModal({ project, onClose, onDownload, onGenerateNarration, narra
             </button>
             {project.voice_audio_url && <audio className="voice-audio-preview" controls preload="none" src={project.voice_audio_url}>متصفحك لا يدعم تشغيل الصوت.</audio>}
           </div>}
-          <div className="render-notice"><Film size={18} /><div><strong>{project.video_url ? 'الفيديو جاهز للتنزيل' : 'خطة الإنتاج لا تعني أن ملف الفيديو قد أُنتج'}</strong><p>{project.video_url ? 'يمكن تنزيل الملف النهائي من رابط الفيديو.' : (plan.note || 'يلزم ربط مزوّد مشاهد وصوت ومحرك مونتاج قبل إنشاء ملف MP4 فعلي. لن يعرض CUTO اكتمالًا وهميًا.')}</p></div></div>
+          {!project.is_local_preview && !project.video_storage_path && Array.isArray(plan.shot_list) && plan.shot_list.length > 0 && <div className="video-production-actions">
+            <button className="primary-button full-width" type="button" onClick={() => onGenerateVideo?.(project)} disabled={videoGenerationLoading || ['queued', 'processing'].includes(project.status)}>
+              {videoGenerationLoading || ['queued', 'processing'].includes(project.status) ? <LoaderCircle className="spin" size={17} /> : <Clapperboard size={17} />}
+              {videoGenerationLoading ? 'جارٍ تجهيز الصوت وإرسال المشاهد…' : ['queued', 'processing'].includes(project.status) ? 'جاري إنتاج الفيديو...' : project.status === 'failed' ? 'إعادة محاولة إنتاج الفيديو' : 'ولّد الفيديو الكامل بالذكاء الاصطناعي'}
+            </button>
+            <p>Gemini يخطط، وModal يشغّل موديل فيديو مولّد، وصوت Gemini AI Studio يُدمج مع الترجمة واسم القناة. لا تُستخدم لقطات جاهزة.</p>
+          </div>}
+          <div className="render-notice"><Film size={18} /><div><strong>{project.video_storage_path || project.video_url ? 'الفيديو جاهز للتنزيل' : 'خطة الإنتاج لا تعني أن ملف الفيديو قد أُنتج'}</strong><p>{project.video_storage_path || project.video_url ? 'الملف النهائي محفوظ في مساحة CUTO الخاصة.' : (plan.note || 'أنشئ خطة الفيديو أولًا؛ لا يعرض CUTO اكتمالًا وهميًا قبل وجود ملف MP4 فعلي.')}</p></div></div>
           <div className="modal-actions">{project.video_url && <a className="primary-button" href={project.video_url} target="_blank" rel="noreferrer"><Download size={16} /> فتح الفيديو</a>}<button className="secondary-button" onClick={() => onDownload(project)}><Download size={16} /> تنزيل تفاصيل المشروع</button><button className="ghost-button" onClick={onClose}>إغلاق</button></div>
         </div>
       </section>
@@ -429,6 +463,7 @@ function App() {
   const [voicePreviewUrl, setVoicePreviewUrl] = useState(null)
   const [voicePreviewLoading, setVoicePreviewLoading] = useState(false)
   const [narrationLoading, setNarrationLoading] = useState(false)
+  const [videoGenerationProjectId, setVideoGenerationProjectId] = useState(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedProject, setSelectedProject] = useState(null)
@@ -517,6 +552,51 @@ function App() {
       .subscribe()
     return () => { supabase.removeChannel(subscription) }
   }, [user?.id])
+
+  const activeVideoProjectKey = projects
+    .filter(project => ['queued', 'processing'].includes(project.status) && !project.video_storage_path)
+    .map(project => project.id)
+    .join('|')
+
+  useEffect(() => {
+    if (!supabaseConfigured || !supabase || !user?.id || !activeVideoProjectKey) return undefined
+    let alive = true
+    let timeout = null
+    const poll = async () => {
+      const projectIds = activeVideoProjectKey.split('|').filter(Boolean)
+      for (const projectId of projectIds) {
+        if (!alive) return
+        try {
+          const { data, error } = await supabase.functions.invoke('modal-render-status', { body: { project_id: projectId } })
+          if (error) {
+            console.warn('CUTO video status polling failed:', error.message)
+            continue
+          }
+          if (!data) continue
+          const patch = data.project || {
+            id: projectId,
+            status: data.status === 'completed' ? 'completed' : data.status === 'failed' ? 'failed' : 'processing',
+            progress: Number.isFinite(Number(data.progress)) ? Number(data.progress) : undefined,
+            stage: typeof data.stage === 'string' ? data.stage : undefined,
+            error_message: data.error || null,
+          }
+          if (!alive) return
+          setProjects(current => current.map(item => item.id === projectId ? { ...item, ...patch } : item))
+          setSelectedProject(current => current?.id === projectId ? { ...current, ...patch } : current)
+          if (data.status === 'completed') notify('اكتمل الفيديو وحُفظ داخل مساحة CUTO الخاصة. يمكنك تنزيل MP4 الآن.')
+          if (data.status === 'failed' && data.error) notify('توقّف إنتاج الفيديو: ' + String(data.error).slice(0, 160), 'error')
+        } catch (error) {
+          console.warn('CUTO video status poll exception:', error?.message || error)
+        }
+      }
+      if (alive) timeout = window.setTimeout(poll, 8000)
+    }
+    timeout = window.setTimeout(poll, 1500)
+    return () => {
+      alive = false
+      if (timeout) window.clearTimeout(timeout)
+    }
+  }, [user?.id, activeVideoProjectKey])
 
   useEffect(() => {
     if (!supabaseConfigured) {
@@ -712,6 +792,73 @@ function App() {
     }
   }
 
+  async function openProject(project) {
+    if (!project) return
+    let nextProject = project
+    if (project.video_storage_path && supabaseConfigured && supabase && user) {
+      try {
+        const { data, error } = await supabase.storage.from('cuto-assets').createSignedUrl(project.video_storage_path, 3600)
+        if (!error && data?.signedUrl) nextProject = { ...project, video_url: data.signedUrl }
+      } catch {
+        // Keep project details available even if renewing the temporary video URL fails.
+      }
+    }
+    setSelectedProject(nextProject)
+  }
+
+  async function handleGenerateVideo(project) {
+    if (!supabaseConfigured || !supabase || !user || !project || project.is_local_preview) {
+      notify('إنتاج MP4 يحتاج حساب Supabase متصلًا ونشر وظائف CUTO. معاينة المتصفح وحدها لا تولّد فيديو حقيقيًا.', 'error')
+      return
+    }
+    if (!project.recipe_plan?.shot_list?.length || !project.recipe_plan?.voice_script) {
+      notify('أعد تجهيز خطة Gemini أولًا حتى تتوفر المشاهد والسيناريو الصوتي.', 'error')
+      return
+    }
+    if (project.video_storage_path) {
+      await openProject(project)
+      return
+    }
+
+    setVideoGenerationProjectId(project.id)
+    try {
+      let currentProject = project
+      if (!currentProject.voice_storage_path) {
+        setNarrationLoading(true)
+        const { data: narrationData, error: narrationError } = await supabase.functions.invoke('generate-narration', {
+          body: { project_id: currentProject.id },
+        })
+        setNarrationLoading(false)
+        if (narrationError) throw narrationError
+        if (!narrationData?.project?.voice_storage_path) {
+          throw new Error(narrationData?.message || 'تعذّر تجهيز صوت Gemini AI Studio.')
+        }
+        currentProject = narrationData.project
+        setProjects(current => current.map(item => item.id === currentProject.id ? { ...item, ...currentProject } : item))
+        setSelectedProject(current => current?.id === currentProject.id ? { ...current, ...currentProject } : current)
+      }
+
+      const { data, error } = await supabase.functions.invoke('modal-render-start', {
+        body: { project_id: currentProject.id },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.message || data.error)
+      const { data: freshProject, error: refreshError } = await supabase
+        .from('video_projects').select('*').eq('id', currentProject.id).eq('user_id', user.id).single()
+      if (refreshError) throw refreshError
+      if (freshProject) {
+        setProjects(current => current.map(item => item.id === freshProject.id ? { ...item, ...freshProject } : item))
+        setSelectedProject(current => current?.id === freshProject.id ? { ...current, ...freshProject } : current)
+      }
+      notify('بدأ CUTO توليد المقاطع الأصلية على Modal باستخدام LTX-2.5، وسيظهر التقدم من حالات التوليد والرندر الفعلية.')
+    } catch (error) {
+      setNarrationLoading(false)
+      notify(error?.message || 'تعذّر بدء إنتاج الفيديو. تأكد من إعداد أسرار Gemini والرندر ونشر وظائف CUTO.', 'error')
+    } finally {
+      setVideoGenerationProjectId(null)
+    }
+  }
+
   async function handleGenerate(event) {
     event.preventDefault()
     if (!idea.trim()) { notify('اكتب وصف الفكرة الأول.', 'error'); return }
@@ -770,6 +917,35 @@ function App() {
     } catch (error) {
       notify(error?.message || 'تعذّر حفظ المشروع. حاول مرة أخرى.', 'error')
     } finally { setGenerating(false); setGenerationPhase('') }
+  }
+
+  async function handleCopyCaption(item) {
+    const hashtags = Array.isArray(item?.hashtags) ? item.hashtags.join(' ') : ''
+    const captionText = [
+      item?.title ? item.title : '',
+      item?.caption || item?.description || '',
+      item?.cta && !(item.caption || '').includes(item.cta) ? item.cta : '',
+      hashtags,
+    ].filter(Boolean).join('\n\n').trim()
+    if (!captionText) { notify('الكابتشن فارغ.', 'error'); return }
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(captionText)
+      } else {
+        const field = document.createElement('textarea')
+        field.value = captionText
+        field.style.position = 'fixed'
+        field.style.opacity = '0'
+        document.body.appendChild(field)
+        field.select()
+        const copied = document.execCommand('copy')
+        field.remove()
+        if (!copied) throw new Error('clipboard_unavailable')
+      }
+      notify(`تم نسخ ${item?.name || 'الكابتشن'} جاهزًا للنشر.`)
+    } catch {
+      notify('لم يسمح المتصفح بالنسخ. حدّد النص وانسخه يدويًا.', 'error')
+    }
   }
 
   function downloadProject(project) {
@@ -848,7 +1024,7 @@ function App() {
 
               <section className="section-block recent-block">
                 <div className="section-heading compact-heading"><div><span className="section-kicker">YOUR WORKSPACE</span><h2>آخر مشروعاتك</h2></div><button className="link-button" onClick={() => setActiveView('projects')}>كل المشروعات <ArrowUpLeft size={15} /></button></div>
-                {filteredProjects.length ? <div className="project-grid">{filteredProjects.slice(0, 3).map(project => <ProjectCard key={project.id} project={project} onOpen={setSelectedProject} />)}</div> : <div className="recent-empty"><span className="recent-empty-icon"><Film size={19} /></span><div><strong>أول مشروع لسه مستني فكرتك</strong><p>بعد إعداد القناة، اكتب أي فكرة في المربع فوق لبدء خطة المحتوى.</p></div><button className="subtle-button" onClick={() => document.getElementById('idea-input')?.focus()}>اكتب فكرة <ArrowUpLeft size={14} /></button></div>}
+                {filteredProjects.length ? <div className="project-grid">{filteredProjects.slice(0, 3).map(project => <ProjectCard key={project.id} project={project} onOpen={openProject} />)}</div> : <div className="recent-empty"><span className="recent-empty-icon"><Film size={19} /></span><div><strong>أول مشروع لسه مستني فكرتك</strong><p>بعد إعداد القناة، اكتب أي فكرة في المربع فوق لبدء خطة المحتوى.</p></div><button className="subtle-button" onClick={() => document.getElementById('idea-input')?.focus()}>اكتب فكرة <ArrowUpLeft size={14} /></button></div>}
               </section>
             </>
           )}
@@ -857,7 +1033,7 @@ function App() {
             <section className="page-section">
               <div className="page-toolbar"><div className="search-box"><Search size={17} /><input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="ابحث في مشروعاتك…" /><kbd>⌕</kbd></div><button className="primary-button" onClick={() => setActiveView('home')}><Plus size={17} /> مشروع جديد</button></div>
               <div className="project-page-summary"><div><span className="summary-label">إجمالي المشروعات</span><strong>{filteredProjects.length.toLocaleString('ar-EG')}</strong></div><div><span className="summary-label">نسبة الفيديوهات المنتَجة</span><strong>{filteredProjects.filter(p => p.video_url).length ? Math.round(filteredProjects.filter(p => p.video_url).length / Math.max(1, filteredProjects.length) * 100) : 0}<small>%</small></strong></div><div><span className="summary-label">المقاس الافتراضي</span><strong>9:16</strong></div></div>
-              {filteredProjects.length ? <div className="project-grid projects-full-grid">{filteredProjects.map(project => <ProjectCard key={project.id} project={project} onOpen={setSelectedProject} />)}</div> : <EmptyProjects onCreate={() => setActiveView('home')} />}
+              {filteredProjects.length ? <div className="project-grid projects-full-grid">{filteredProjects.map(project => <ProjectCard key={project.id} project={project} onOpen={openProject} />)}</div> : <EmptyProjects onCreate={() => setActiveView('home')} />}
             </section>
           )}
 
@@ -884,7 +1060,7 @@ function App() {
         </div>
       </section>
       <Toast toast={toast} onClose={() => setToast(null)} />
-      {selectedProject && <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} onDownload={downloadProject} onGenerateNarration={handleGenerateNarration} narrationLoading={narrationLoading} />}
+      {selectedProject && <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} onDownload={downloadProject} onGenerateNarration={handleGenerateNarration} narrationLoading={narrationLoading} onCopyCaption={handleCopyCaption} onGenerateVideo={handleGenerateVideo} videoGenerationLoading={videoGenerationProjectId === selectedProject.id} />}
       {onboardingOpen && <Onboarding setup={setup} setSetup={setSetup} step={setupStep} setStep={setSetupStep} onSubmit={handleSetupSubmit} onClose={() => { setOnboardingOpen(false); setOnboardingAdding(false); setSetupError('') }} loading={setupSaving} adding={onboardingAdding} editing={Boolean(editingChannelId)} error={setupError} onPreviewVoice={handleVoicePreview} voicePreviewUrl={voicePreviewUrl} voicePreviewLoading={voicePreviewLoading} clearVoicePreview={() => setVoicePreviewUrl(null)} />}
     </main>
   )

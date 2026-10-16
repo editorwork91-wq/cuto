@@ -9,7 +9,8 @@ A premium RTL-first creator workspace for turning a channel brief into a consist
 - A database-enforced maximum of **two channels per authenticated user** (trigger + unique owner/slot constraint).
 - Secure email/password auth through Supabase.
 - Channel strategy / prompt-pack generation through a Supabase Edge Function using a server-side Gemini key.
-- Recipe project creation and status records.
+- Recipe project creation, publishing-caption packages, and persisted render-job status.
+- AI-only video pipeline in progress: Gemini plans each project, Gemini TTS provides the narration, Modal runs LTX-2.5 on GPU to generate clips, and FFmpeg composes the final portrait MP4 with subtitles and channel identity.
 - Demo mode when Supabase isn't configured; it is explicitly local preview, not connected account storage or real video rendering.
 
 ## Keys and provider setup
@@ -31,17 +32,26 @@ The GitHub token connected to this session cannot enable Pages for the repositor
 
 ## Supabase setup
 
-1. Apply `supabase/migrations/20261014000000_cuto_core.sql` in the Supabase SQL Editor (or with the Supabase CLI).
-2. Deploy the Edge Functions from this repo: `channel-director`, `recipe-director`, `voice-preview`, and `generate-narration`. The function folders contain the entrypoint source; use the Supabase CLI from a local checkout or paste each function into the Edge Function editor. Keep JWT verification enabled.
-3. Set `GEMINI_API_KEY` in Supabase Dashboard → Edge Functions → Secrets. Optionally set `GEMINI_MODEL` (default `gemini-3.8-flash`) and `GEMINI_TTS_MODEL` (default `gemini-3.8-flash-tts`) there too. Never put these secrets in the browser or commit their real values.
-4. Ensure Email auth is enabled in Supabase Auth settings and configure your site URL / redirect URLs.
-5. The voice preview function returns a sample generated audio clip; the narration function generates the saved script as WAV and stores it in private `cuto-assets`, then returns a short-lived signed URL. Voice gender is a preference/instruction to the model, not a guarantee of a specific speaker identity or dialect quality.
+1. Apply all migrations in `supabase/migrations/` in filename order to the dedicated CUTO Supabase project. Do not apply them to YOMY.
+2. Deploy `channel-director`, `recipe-director`, `voice-preview`, `generate-narration`, `modal-render-start`, and `modal-render-status`. Keep JWT verification enabled.
+3. Set `GEMINI_API_KEY` in Supabase Dashboard → Edge Functions → Secrets. Optionally set `GEMINI_MODEL` and `GEMINI_TTS_MODEL` to override defaults. Never put these secrets in the browser or commit their real values.
+4. Before deploying, accept LTX-2.5's gated license on Hugging Face and create a read token (`HF_TOKEN`). In Modal, create a Secret named `cuto-supabase-worker` with `SUPABASE_URL`, the server-only `SUPABASE_SECRET_KEY` for CUTO, and `HF_TOKEN`.
+5. In GitHub repository Settings → Secrets and variables → Actions, add `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` using a Modal API token (deployment credentials, typically `ak-` / `as-`; these are not proxy tokens).
+6. After this branch is merged into `main`, run Actions → Deploy CUTO Modal Video Worker → Run workflow. This uses GitHub's hosted runner to deploy the Modal GPU worker; you do not need an always-on server or local Python installation.
+7. In Modal, create a separate Proxy Auth Token for the deployed `submit_video` endpoint. In Supabase Edge Function Secrets, set `MODAL_VIDEO_ENDPOINT_URL`, `MODAL_KEY`, and `MODAL_SECRET` from the deployed endpoint and proxy token (`wk-` / `ws-`). Keep all these out of `VITE_` variables and frontend files.
+8. Ensure Email auth is enabled and configure your site URL / redirect URLs. Run a full test from recipe planning through a private MP4 download before advertising production readiness.
+
+The narration function generates a WAV and stores it in private `cuto-assets`; the final Modal worker generates original video scenes with LTX-2.5 and composes them using FFmpeg. Voice gender is a preference/instruction to TTS, not a guarantee of a specific speaker identity or dialect quality.
 
 The browser uses a publishable key only. RLS policies scope rows to `auth.uid()`; channel count is enforced by Postgres as a second line of defense.
 
 ## Video generation status
 
-The project currently creates channel strategy and recipe-production briefs, and includes Edge Functions for voice preview and saving a generated narration WAV. A real MP4 pipeline still needs a chosen, licensed footage/video provider and a server-side rendering/worker service (for example FFmpeg) to assemble clips, subtitles, the white creator handle, music and final export. These integrations are intentionally not faked: without provider secrets and a running worker, the app does not claim that a final video exists or that a five-minute SLA is guaranteed. The UI progress bar reads stored status/progress from Supabase; a production worker must update these fields truthfully.
+CUTO's intended full pipeline is Gemini for planning/captions, Gemini TTS from Google AI Studio for narration, and Modal hosting LTX-2.5-Diffusers on GPU to generate the visual clips from scratch. FFmpeg on the Modal worker combines AI-generated clips, narration, subtitles, hook text, and channel identity into portrait MP4. Supabase holds private job state and generated assets.
+
+The deployment still requires a dedicated CUTO Supabase project, applied migrations, published Edge Functions, Modal CLI deployment, server-only secrets, model license review, and real end-to-end acceptance tests. Provider setup in documentation is not proof that external services have already been deployed or that MP4 output has been production-tested.
+
+The pipeline does not use stock footage or unrelated generic nature clips. A five-minute turnaround remains a performance goal, not a guarantee.
 
 ## Production checklist
 
