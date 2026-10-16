@@ -106,6 +106,22 @@ Deno.serve(async (request: Request) => {
       return reply(200, { status: existing.status, job: existing, existing_job: true });
     }
 
+    // Cost guardrail: at most one active video render per user. Modal itself is also capped to one GPU worker.
+    const { data: activeJobs, error: activeJobsError } = await admin
+      .from("video_render_jobs")
+      .select("id,project_id,status")
+      .eq("user_id", user.id)
+      .in("status", ["queued", "generating_scenes", "rendering", "uploading"])
+      .neq("project_id", projectId)
+      .limit(1);
+    if (activeJobsError) return reply(500, { error: "active_render_limit_check_failed" });
+    if (activeJobs?.length) {
+      return reply(429, {
+        error: "render_already_running",
+        message: "لتقليل تكلفة GPU، يمكنك تشغيل فيديو واحد في كل مرة. انتظر حتى يكتمل المشروع الحالي.",
+      });
+    }
+
     const previousScenes = Array.isArray(existing?.scenes) ? existing.scenes as Record<string, unknown>[] : [];
     const sceneRows = shotList.map((scene, index) => {
       const previous = previousScenes.find(row => Number(row.index) === index);
