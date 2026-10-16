@@ -1,4 +1,4 @@
--- Durable job state for the AI-only Veo -> RenderScript -> private Supabase Storage pipeline.
+-- Durable job state for the Gemini -> Modal GPU video generation -> FFmpeg -> private Supabase Storage pipeline.
 -- All provider calls and job writes are performed by authenticated Edge Functions using the service role.
 alter table public.video_projects
   add column if not exists video_storage_path text;
@@ -13,7 +13,7 @@ create table if not exists public.video_render_jobs (
   progress smallint not null default 0 check (progress between 0 and 100),
   stage text not null default 'في قائمة انتظار الإنتاج',
   scenes jsonb not null default '[]'::jsonb,
-  render_provider_id text,
+  render_provider_id text, -- Modal call ID or renderer job ID
   output_storage_path text,
   error_message text,
   created_at timestamptz not null default now(),
