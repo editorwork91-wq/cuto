@@ -450,7 +450,7 @@ def render_project(job_id: str, project_id: str, user_id: str):
         shutil.rmtree(tmp_root, ignore_errors=True)
 
 
-endpoint_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install("fastapi[standard]", "pydantic")
+endpoint_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install("fastapi[standard]", "pydantic", "httpx")
 
 
 @app.function(image=endpoint_image, timeout=30)
